@@ -1,0 +1,25 @@
+# Archivos de empaquetado y digitalización
+*.xlb
+*.cll
+*.digpkg
+*.zip
+*.pag
+
+# Metadatos exportados
+*.dig
+Copia_Seguridad_*.dig
+
+# Imágenes sueltas de prueba
+*.jpg
+*.jpeg
+*.png
+*.webp
+
+# Ignorar directorios de prueba de colecciones si existen
+Coleccion*/
+Libro*/
+trabajo*/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
