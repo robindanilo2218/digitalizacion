@@ -1,0 +1,18 @@
+{
+  "name": "Archivo Histórico Digital",
+  "short_name": "Archivo",
+  "description": "Sistema de Archivo Histórico Digital PWA",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F0F8FF",
+  "theme_color": "#1E3A8A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
