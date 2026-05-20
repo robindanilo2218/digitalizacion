@@ -21,9 +21,20 @@ BASENAME="$(basename "$DIR")"
 
 echo "Procesando directorio: $DIR"
 
-# 1. Cambiar extensión de .jpg a .pag dentro de la carpeta
-echo "Cambiando extensiones de .jpg a .pag..."
-find "$DIR" -type f -name "*.jpg" -exec sh -c 'mv "$0" "${0%.jpg}.pag"' {} \;
+# 1. Cambiar extensión de .jpg a .pag y añadir prefijo del libro
+echo "Añadiendo prefijo y cambiando extensión de .jpg a .pag..."
+export BASENAME
+find "$DIR" -type f -name "*.jpg" -exec bash -c '
+  for file do
+    dir=$(dirname "$file")
+    base=$(basename "$file" .jpg)
+    if [[ "$base" == "${BASENAME}_"* ]]; then
+      mv "$file" "$dir/${base}.pag"
+    else
+      mv "$file" "$dir/${BASENAME}_${base}.pag"
+    fi
+  done
+' bash {} +
 
 # 2. Comprimir la carpeta a un archivo .zip
 echo "Comprimiendo a $BASENAME.zip..."

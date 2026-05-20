@@ -22,7 +22,7 @@ Destaca por su capacidad para manejar miles de registros en memoria mediante la 
 
 ## ✨ Características Principales
 
-- 📦 **Soporte Nativo de Paquetes:** Abre y visualiza paquetes estructurados (`.xlb`, `.zip`) directamente en el navegador.
+- 📦 **Soporte Nativo de Paquetes:** Abre y visualiza paquetes estructurados (`.xlb`) directamente en el navegador.
 - ⚡ **Rendimiento Extremo:** Gestión de memoria delegada a IndexedDB. No se congela incluso con cargas masivas.
 - 🔍 **Buscador General Unificado:** Búsqueda instantánea por nombre, fecha, folio, libro o notas en el catálogo histórico central.
 - 📱 **PWA Completa:** Instalable en computadoras de escritorio, tablets y dispositivos móviles.

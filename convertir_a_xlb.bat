@@ -24,9 +24,17 @@ for %%I in ("%DIR%") do set "BASENAME=%%~nxI"
 
 echo Procesando directorio: %DIR%
 
-:: 1. Cambiar extension de .jpg a .pag
-echo Cambiando extensiones de .jpg a .pag...
-ren "%DIR%\*.jpg" *.pag
+:: 1. Cambiar extension de .jpg a .pag y anadiendo prefijo del libro
+echo Cambiando extensiones de .jpg a .pag y anadiendo prefijo %BASENAME%_...
+for /R "%DIR%" %%F in (*.jpg) do (
+    set "filename=%%~nF"
+    echo !filename! | findstr /b /c:"%BASENAME%_" >nul
+    if errorlevel 1 (
+        ren "%%F" "%BASENAME%_!filename!.pag"
+    ) else (
+        ren "%%F" "!filename!.pag"
+    )
+)
 
 :: 2. Comprimir a .zip usando PowerShell integrado en Windows
 echo Comprimiendo a %BASENAME%.zip...

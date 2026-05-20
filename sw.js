@@ -13,6 +13,8 @@ const ASSETS = [
     './js/main.js',
     './manifest.json',
     './icons/icon.svg',
+    './icons/icon-192.png',
+    './icons/icon-512.png',
     'https://cdn.tailwindcss.com',
     'https://unpkg.com/lucide@latest',
     'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
