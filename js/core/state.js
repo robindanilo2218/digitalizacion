@@ -23,5 +23,15 @@ const state = {
 
     view: 'workspace',
     leftTab: 'folders',
-    zoom: 1, rotation: 0, currentObjectUrl: null
+    zoom: 1, rotation: 0, currentObjectUrl: null,
+
+    // Agrupación de actas
+    actaModeActive: false,
+    currentActaNum: '',
+
+    // Resultados del buscador
+    searchResults: [],
+    selectedSearchIndex: -1,
+    currentActaPageIndex: 0,
+    _searchDetailObjectUrl: null
 };

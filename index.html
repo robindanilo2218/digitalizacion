@@ -24,6 +24,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        @media print {
+            body > *:not(#print-area) { display: none !important; }
+            #print-area { display: block !important; }
+        }
+    </style>
 </head>
 
 <body class="bg-gt-light h-screen w-full flex flex-col font-sans overflow-hidden text-slate-800">
@@ -322,30 +328,114 @@
 
     <!-- Modal Configuración de Empaquetado -->
     <div id="modal-package-config" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-40 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-            <div class="bg-gt-dark p-5 border-b border-slate-700">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+            <div class="bg-gt-dark p-5 border-b border-slate-700 shrink-0">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2">
                     <i data-lucide="package-plus" class="w-5 h-5 text-gt-sky"></i>
                     Configurar Colección (.cll)
                 </h3>
+                <p class="text-xs text-slate-400 mt-1">Personalice los metadatos del paquete de archivo.</p>
             </div>
-            <div class="p-6 space-y-4">
+            <div class="p-6 space-y-4 overflow-y-auto">
+
+                <!-- Nombre de la Colección -->
                 <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-1">Nombre de la Colección</label>
-                    <input type="text" id="input-collection-name" placeholder="Ej. Matrimonios 1990-2000" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue focus:border-transparent text-slate-800">
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Nombre de la Colección <span class="text-red-500">*</span></label>
+                    <input type="text" id="input-collection-name" placeholder="Ej. Matrimonios Municipales 1950-1980"
+                        class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800 font-medium">
                 </div>
+
+                <!-- Serie / Tipo Documental -->
                 <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-1">Tipo de Documentos</label>
-                    <select id="select-collection-type" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800">
-                        <option value="Matrimonios">Matrimonios</option>
-                        <option value="Bautizos">Bautizos</option>
-                        <option value="Defunciones">Defunciones</option>
-                        <option value="Confirmaciones">Confirmaciones</option>
-                        <option value="Varios">Varios</option>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Serie / Tipo de Documento</label>
+                    <select id="select-collection-type" onchange="app.toggleCustomType()"
+                        class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800">
+                        <optgroup label="Registros Civiles">
+                            <option value="Matrimonios">Matrimonios</option>
+                            <option value="Defunciones">Defunciones</option>
+                            <option value="Nacimientos">Nacimientos / Partidas de Nacimiento</option>
+                            <option value="Divorcios">Divorcios</option>
+                            <option value="Reconocimientos">Reconocimientos de Hijo</option>
+                        </optgroup>
+                        <optgroup label="Registros Religiosos / Parroquiales">
+                            <option value="Bautizos">Bautizos</option>
+                            <option value="Confirmaciones">Confirmaciones</option>
+                            <option value="Primeras Comuniones">Primeras Comuniones</option>
+                            <option value="Libros Parroquiales">Libros Parroquiales (General)</option>
+                        </optgroup>
+                        <optgroup label="Registros Municipales">
+                            <option value="Actas Municipales">Actas Municipales</option>
+                            <option value="Resoluciones">Resoluciones / Decretos</option>
+                            <option value="Minutas de Ayuntamiento">Minutas de Ayuntamiento</option>
+                            <option value="Padrones">Padrones / Censos</option>
+                            <option value="Licencias">Licencias y Permisos</option>
+                        </optgroup>
+                        <optgroup label="Registros de Propiedad">
+                            <option value="Títulos de Propiedad">Títulos de Propiedad</option>
+                            <option value="Escrituras">Escrituras Públicas</option>
+                            <option value="Catastros">Catastros</option>
+                        </optgroup>
+                        <optgroup label="Notariales / Judiciales">
+                            <option value="Actas Notariales">Actas Notariales</option>
+                            <option value="Expedientes Judiciales">Expedientes Judiciales</option>
+                            <option value="Protocolos Notariales">Protocolos Notariales</option>
+                        </optgroup>
+                        <optgroup label="Otros">
+                            <option value="Correspondencia">Correspondencia Oficial</option>
+                            <option value="Mapas y Planos">Mapas y Planos</option>
+                            <option value="Fotografías">Fotografías Históricas</option>
+                            <option value="Varios">Varios / Misceláneo</option>
+                            <option value="__custom__">-- Tipo personalizado --</option>
+                        </optgroup>
                     </select>
+                    <input type="text" id="input-custom-type" placeholder="Escribir tipo de documento..."
+                        class="hidden w-full p-3 mt-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800 font-medium">
                 </div>
+
+                <!-- Institución / Fondo -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Institución / Fondo Documental</label>
+                    <input type="text" id="input-institution" placeholder="Ej. Registro Civil, Parroquia San Miguel, Municipalidad..."
+                        class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800 font-medium">
+                </div>
+
+                <!-- Municipio y Departamento -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Municipio / Localidad</label>
+                        <input type="text" id="input-municipio" placeholder="Ej. San Marcos"
+                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800 font-medium">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Departamento / Provincia</label>
+                        <input type="text" id="input-departamento" placeholder="Ej. Quetzaltenango"
+                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800 font-medium">
+                    </div>
+                </div>
+
+                <!-- Rango de Años -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Año Inicial</label>
+                        <input type="number" id="input-year-start" placeholder="Ej. 1920" min="1400" max="2099"
+                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800 font-medium">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Año Final</label>
+                        <input type="number" id="input-year-end" placeholder="Ej. 1975" min="1400" max="2099"
+                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800 font-medium">
+                    </div>
+                </div>
+
+                <!-- Notas -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Notas / Descripción</label>
+                    <textarea id="input-collection-notes" rows="2" placeholder="Condición del documento, observaciones, procedencia..."
+                        class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800 font-medium resize-none"></textarea>
+                </div>
+
             </div>
-            <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+            <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 shrink-0">
                 <button onclick="document.getElementById('modal-package-config').classList.add('hidden')" class="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button>
                 <button onclick="app.executePackaging()" class="px-5 py-2.5 rounded-xl font-bold bg-gt-blue text-white hover:bg-opacity-90 transition-colors shadow-md flex items-center gap-2">
                     <i data-lucide="package-check" class="w-4 h-4"></i> Empaquetar
@@ -401,6 +491,63 @@
         <i data-lucide="cog" class="w-20 h-20 animate-spin text-gt-sky mb-6"></i>
         <h2 class="text-3xl font-extrabold tracking-wide" id="global-loader-title">Procesando...</h2>
         <p class="text-gt-sky mt-3 text-lg font-medium" id="global-loader-subtitle">Por favor, espere un momento.</p>
+    </div>
+
+
+    <!-- Área de impresión (oculta, solo visible en @media print) -->
+    <div id="print-area" class="hidden"></div>
+
+    <!-- Modal: Detalle de Resultado de Búsqueda -->
+    <div id="modal-search-detail" class="hidden fixed inset-0 z-50 flex flex-col" style="background:#0f172a">
+        <!-- Barra de navegación superior -->
+        <div class="bg-gt-dark border-b border-slate-700 px-4 py-3 flex items-center gap-2 shrink-0">
+            <button id="btn-sd-prev" onclick="app.navSearchResult(-1)"
+                class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-1.5">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> Anterior
+            </button>
+            <span id="lbl-sd-counter" class="text-white font-bold text-sm bg-slate-800 px-3 py-2 rounded-lg min-w-[130px] text-center">1 de 1</span>
+            <button id="btn-sd-next" onclick="app.navSearchResult(1)"
+                class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-1.5">
+                Siguiente <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+
+            <!-- Navegación de páginas del acta -->
+            <div id="sd-acta-nav" class="hidden ml-3 flex items-center gap-1.5 bg-indigo-900/70 border border-indigo-600/60 rounded-lg px-3 py-1.5">
+                <i data-lucide="files" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <button id="btn-sd-page-prev" onclick="app.navActaPage(-1)" class="text-white hover:text-indigo-300 font-bold px-1">&#9664;</button>
+                <span id="lbl-sd-page" class="text-indigo-200 text-xs font-bold min-w-[55px] text-center">Pág 1/1</span>
+                <button id="btn-sd-page-next" onclick="app.navActaPage(1)" class="text-white hover:text-indigo-300 font-bold px-1">&#9654;</button>
+            </div>
+
+            <div class="ml-auto flex items-center gap-2">
+                <button onclick="app.printSearchResult()"
+                    class="px-4 py-2 bg-gt-blue hover:bg-opacity-90 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+                </button>
+                <button onclick="app.closeSearchDetail()"
+                    class="px-4 py-2 bg-slate-700 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-1.5">
+                    <i data-lucide="x" class="w-4 h-4"></i> Cerrar
+                </button>
+            </div>
+        </div>
+
+        <!-- Contenido: Imagen + Metadatos -->
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Visor de imagen -->
+            <div class="flex-1 flex items-center justify-center p-6 min-w-0 overflow-hidden relative" style="background:#020617">
+                <img id="sd-img" alt="Documento" class="max-h-full max-w-full object-contain rounded-lg shadow-2xl" style="display:none" />
+                <div id="sd-no-img" class="text-center">
+                    <i data-lucide="image-off" class="w-20 h-20 text-slate-700 mx-auto mb-4"></i>
+                    <p class="text-slate-500 font-medium">Imagen no disponible en este contexto</p>
+                    <p class="text-slate-600 text-xs mt-2">La imagen puede estar fuera del paquete cargado</p>
+                </div>
+            </div>
+
+            <!-- Panel de metadatos -->
+            <div class="w-80 xl:w-96 bg-white border-l border-slate-700 overflow-y-auto shrink-0">
+                <div id="sd-meta" class="p-6"></div>
+            </div>
+        </div>
     </div>
 
     <script src="js/core/db.js"></script>

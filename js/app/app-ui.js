@@ -136,21 +136,46 @@ Object.assign(window.app, {
             const isActive = state.activeFolder === folder;
             const count = state.folders[folder].length;
 
+            // Jerarquía de la ruta
+            const parts = folder.split('/');
+            const trabajoName = parts[parts.length - 1];
+            const bookName    = parts.length >= 2 ? parts[parts.length - 2] : '';
+            const colName     = parts.length >= 3 ? parts[parts.length - 3] : '';
+
+            // Contar actas únicas en esta carpeta
+            const uniqueActas = new Set();
+            state.folders[folder].forEach(img => {
+                const r = state.records[img.fullPath];
+                if (r && r[0] && r[0]._num_acta) uniqueActas.add(r[0]._num_acta);
+            });
+            const actaCount = uniqueActas.size;
+
             const btn = document.createElement('button');
             btn.onclick = () => this.selectFolder(folder);
-            btn.className = `w-full text-left p-4 rounded-xl flex flex-col gap-2 transition-all border ${isActive ? 'bg-gt-dark text-white border-slate-800 shadow-lg transform scale-[1.02]' : 'bg-white text-slate-700 hover:bg-gt-light border-slate-200 shadow-sm hover:border-gt-sky'}`;
+            btn.className = `w-full text-left p-4 rounded-xl flex flex-col gap-1.5 transition-all border ${isActive ? 'bg-gt-dark text-white border-slate-800 shadow-lg transform scale-[1.02]' : 'bg-white text-slate-700 hover:bg-gt-light border-slate-200 shadow-sm hover:border-gt-sky'}`;
 
             btn.innerHTML = `
-    <div class="flex items-center justify-between w-full">
-       <span class="font-extrabold text-sm break-all pr-2 flex items-center gap-2">
+    <div class="flex items-start justify-between w-full gap-2">
+       <span class="font-extrabold text-sm break-all flex items-center gap-2">
           <i data-lucide="${isActive ? 'folder-open' : 'folder'}" class="${isActive ? 'text-gt-sky' : 'text-gt-blue'} w-5 h-5 flex-shrink-0"></i>
-          ${folder.split('/').pop()}
+          ${trabajoName}
        </span>
     </div>
-    <div class="flex items-center justify-between w-full">
-       <span class="text-xs px-2.5 py-1 rounded-md font-bold ${isActive ? 'bg-slate-800 text-gt-sky' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
-          ${count} docs
-       </span>
+    ${bookName ? `<div class="flex items-center gap-1.5 pl-7">
+       <i data-lucide="book" class="${isActive ? 'text-slate-400' : 'text-slate-300'} w-3 h-3 flex-shrink-0"></i>
+       <span class="text-xs font-semibold truncate ${isActive ? 'text-slate-300' : 'text-slate-500'}">${bookName}</span>
+    </div>` : ''}
+    ${colName ? `<div class="flex items-center gap-1.5 pl-7">
+       <i data-lucide="archive" class="${isActive ? 'text-slate-500' : 'text-slate-300'} w-3 h-3 flex-shrink-0"></i>
+       <span class="text-[10px] font-medium truncate ${isActive ? 'text-slate-400' : 'text-slate-400'}">${colName}</span>
+    </div>` : ''}
+    <div class="flex items-center justify-between w-full mt-0.5">
+       <div class="flex items-center gap-1.5">
+          <span class="text-xs px-2.5 py-1 rounded-md font-bold ${isActive ? 'bg-slate-800 text-gt-sky' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
+             ${count} imágenes
+          </span>
+          ${actaCount > 0 ? `<span class="text-xs px-2 py-1 rounded-md font-bold ${isActive ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-50 text-indigo-600 border border-indigo-200'}">&#128204; ${actaCount} actas</span>` : ''}
+       </div>
        <span class="text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-white' : 'text-slate-400'}">Consultar &rarr;</span>
     </div>
   `;
@@ -212,6 +237,76 @@ Object.assign(window.app, {
         }
         
         const recordData = recordsArray[state.subRecordIndex] || {};
+
+        // --- WIDGET DE ACTA (solo modo standard, solo admin) ---
+        const isStandardMode = !state.collectionConfig || state.collectionConfig.mode !== 'folder';
+        if (isStandardMode && state.images.length > 0 && fullPath) {
+            if (!state.actaModeActive) {
+                // Modo normal: botón discreto para activar
+                if (state.isAdmin) {
+                    const actaBtn = document.createElement('div');
+                    actaBtn.className = 'mb-3';
+                    actaBtn.innerHTML = `
+                        <button onclick="app.toggleActaMode()"
+                            class="w-full py-2 px-3 text-xs font-bold text-slate-400 border border-dashed border-slate-300 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors flex items-center justify-center gap-2">
+                            <i data-lucide="files" class="w-3.5 h-3.5"></i> Trabajar imagen como parte de un Acta Multipágina
+                        </button>`;
+                    container.appendChild(actaBtn);
+                }
+            } else {
+                // Modo acta activo: panel completo
+                const rec0      = (state.records[fullPath] && state.records[fullPath][0]) ? state.records[fullPath][0] : {};
+                const numActa   = rec0._num_acta   || state.currentActaNum || '';
+                const numPagina = rec0._num_pagina || '';
+                const isIncluded = !!rec0._num_acta;
+                let actaImgCount = 0;
+                if (numActa) state.images.forEach(img => { const r = state.records[img.fullPath]; if (r && r[0] && r[0]._num_acta === numActa) actaImgCount++; });
+
+                const actaWidget = document.createElement('div');
+                actaWidget.className = 'bg-indigo-50 border border-indigo-300 rounded-xl p-3 mb-3';
+                actaWidget.innerHTML = `
+                    <div class="flex items-center justify-between mb-2.5">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="files" class="w-3.5 h-3.5 text-indigo-600"></i>
+                            <span class="text-xs font-extrabold uppercase tracking-wide text-indigo-700">Modo Acta Activo</span>
+                            <span id="lbl-acta-img-count" class="${actaImgCount > 1 ? 'text-xs font-bold bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-md' : 'hidden'}">
+                                ${actaImgCount > 1 ? '📄 ' + actaImgCount + ' imágenes' : ''}
+                            </span>
+                        </div>
+                        <button onclick="app.toggleActaMode()" class="text-xs text-indigo-400 hover:text-indigo-700 font-bold flex items-center gap-1">
+                            <i data-lucide="x" class="w-3 h-3"></i> Salir
+                        </button>
+                    </div>
+                    <div class="mb-2">
+                        <label class="text-[10px] font-bold text-indigo-500 uppercase tracking-wide block mb-1">N° Acta</label>
+                        <input id="input-num-acta" type="text" placeholder="Ej: 1, 47, M-001…" value="${numActa}"
+                            class="w-full p-2 text-sm bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none font-bold text-slate-800"
+                            oninput="app.setCurrentActaNum(this.value)" />
+                    </div>
+                    <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-indigo-100 transition-colors ${isIncluded ? 'mb-2' : ''} bg-white/60 border border-indigo-100">
+                        <input type="checkbox" id="chk-imagen-en-acta" ${isIncluded ? 'checked' : ''}
+                            onchange="app.includeImageInActa(this.checked)"
+                            class="w-4 h-4 rounded accent-indigo-600 cursor-pointer" />
+                        <span class="text-sm font-semibold text-slate-700">Esta imagen es página de este acta</span>
+                        ${isIncluded && numPagina ? `<span class="ml-auto text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">Pág. ${numPagina}</span>` : ''}
+                    </label>
+                    ${isIncluded ? `
+                    <div class="flex gap-2 mt-2">
+                        <div class="flex items-center gap-2 flex-1">
+                            <label class="text-[10px] font-bold text-indigo-500 uppercase tracking-wide whitespace-nowrap">Pág. #</label>
+                            <input id="input-num-pagina" type="text" placeholder="1, 2…" value="${numPagina}"
+                                class="w-full p-2 text-sm bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none font-bold text-slate-800"
+                                oninput="app.setNumPagina(this.value)" />
+                        </div>
+                        <button onclick="app.nextActaPage()" title="Asignar siguiente página del mismo acta a la imagen siguiente y avanzar"
+                            class="px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Siguiente pág.
+                        </button>
+                    </div>` : ''}
+                `;
+                container.appendChild(actaWidget);
+            }
+        }
 
         // Subrecord Tabs
         const tabsDiv = document.createElement('div');
@@ -283,74 +378,297 @@ Object.assign(window.app, {
     renderSearchTable() {
         const term = document.getElementById('search-input').value.toLowerCase();
         const keys = Object.keys(state.records);
-
         let headerText = `${keys.length} registros gestionados por IndexedDB.`;
 
         const filtered = keys.filter(pathKey => {
             let dataArr = state.records[pathKey];
             if (!Array.isArray(dataArr)) dataArr = [dataArr];
-
             if (pathKey.toLowerCase().includes(term)) return true;
-            
-            return dataArr.some(recordData => 
-                Object.values(recordData).some(val => String(val).toLowerCase().includes(term))
-            );
+            return dataArr.some(d => Object.values(d).some(v => String(v).toLowerCase().includes(term)));
         });
 
-        // LÍMITE DE DOM PARA EVITAR CONGELAMIENTO (Carga solo los primeros 100 resultados)
         const MAX_RESULTS = 100;
         const displayResults = filtered.slice(0, MAX_RESULTS);
-
-        if (filtered.length > MAX_RESULTS) {
-            headerText += ` (Mostrando los primeros ${MAX_RESULTS} por rendimiento)`;
-        }
+        if (filtered.length > MAX_RESULTS) headerText += ` (Mostrando los primeros ${MAX_RESULTS})`;
         document.getElementById('lbl-records-count').innerText = headerText;
 
         const tbody = document.getElementById('search-table-body');
         const thead = document.getElementById('search-table-head');
         tbody.innerHTML = '';
         thead.innerHTML = '';
+        state.searchResults = [];
 
         if (displayResults.length === 0) {
             document.getElementById('search-empty').classList.remove('hidden');
             return;
-        } else {
-            document.getElementById('search-empty').classList.add('hidden');
         }
+        document.getElementById('search-empty').classList.add('hidden');
 
-        let headHtml = '<tr><th class="p-5 border-b border-slate-200 font-extrabold text-gt-dark text-sm tracking-wide bg-gt-light">Referencia Interna (.dig)</th>';
-        state.schema.forEach(field => {
-            headHtml += `<th class="p-5 border-b border-slate-200 font-extrabold text-gt-dark text-sm tracking-wide bg-gt-light">${field.label}</th>`;
-        });
+        // Cabecera
+        let headHtml = '<tr>';
+        headHtml += '<th class="p-4 border-b border-slate-200 font-extrabold text-gt-dark text-sm bg-gt-light">Acta</th>';
+        headHtml += '<th class="p-4 border-b border-slate-200 font-extrabold text-gt-dark text-sm bg-gt-light">Referencia</th>';
+        state.schema.forEach(f => { headHtml += `<th class="p-4 border-b border-slate-200 font-extrabold text-gt-dark text-sm bg-gt-light">${f.label}</th>`; });
+        headHtml += '<th class="p-4 border-b border-slate-200 bg-gt-light"></th>';
         headHtml += '</tr>';
         thead.innerHTML = headHtml;
 
+        // Agrupar por Nº Acta
+        const actaGroups = {};
+        const ungrouped  = [];
         displayResults.forEach(pathKey => {
+            const dataArr = state.records[pathKey];
+            if (!Array.isArray(dataArr) || !dataArr.length) return;
+            const rec0    = dataArr[0] || {};
+            const numActa = rec0._num_acta || '';
+            if (numActa) {
+                const folder   = pathKey.substring(0, pathKey.lastIndexOf('/'));
+                const groupKey = folder + '\x00' + numActa;
+                if (!actaGroups[groupKey]) actaGroups[groupKey] = { numActa, pages: [], primaryData: rec0, folder };
+                actaGroups[groupKey].pages.push({ pathKey, rec0, pagina: rec0._num_pagina || '' });
+            } else {
+                ungrouped.push(pathKey);
+            }
+        });
+        Object.values(actaGroups).forEach(g => g.pages.sort((a,b) => (parseInt(a.pagina)||0)-(parseInt(b.pagina)||0)));
+
+        // Renderizar actas agrupadas
+        Object.values(actaGroups).forEach(group => {
+            const idx  = state.searchResults.length;
+            state.searchResults.push({ type: 'acta', numActa: group.numActa, folder: group.folder, pages: group.pages, primaryData: group.primaryData });
+
+            const data      = group.primaryData;
+            const pageCount = group.pages.length;
+            const pagesDesc = group.pages.map(p => p.pagina ? `p.${p.pagina}` : '').filter(Boolean).join(', ');
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-indigo-50 transition-colors cursor-pointer border-l-4 border-indigo-400 bg-indigo-50/20 group';
+            tr.onclick = () => app.openSearchDetail(idx);
+            tr.dataset.searchIdx = idx;
+
+            let cells = `<td class="p-4">
+                <div class="flex items-center gap-2">
+                    <span class="font-extrabold text-indigo-700 text-sm bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200">#${group.numActa}</span>
+                    <span class="text-xs font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-200">${pageCount} pág${pageCount!==1?'s':''}${pagesDesc?' ('+pagesDesc+')':''}</span>
+                </div></td>`;
+            cells += `<td class="p-4 text-slate-400 text-xs max-w-[160px] truncate" title="${group.folder}">${group.folder.split('/').slice(-2).join('/')}</td>`;
+            state.schema.forEach(f => { cells += `<td class="p-4 text-slate-700 max-w-[160px] truncate text-sm">${data[f.id]||'<span class="text-slate-300">-</span>'}</td>`; });
+            cells += `<td class="p-4"><span class="opacity-0 group-hover:opacity-100 text-xs text-indigo-600 font-bold whitespace-nowrap">Ver →</span></td>`;
+
+            tr.innerHTML = cells;
+            tbody.appendChild(tr);
+        });
+
+        // Renderizar registros sin acta
+        ungrouped.forEach(pathKey => {
             let dataArr = state.records[pathKey];
             if (!Array.isArray(dataArr)) dataArr = [dataArr];
 
-            dataArr.forEach((data, index) => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-gt-light/50 transition-colors group cursor-default";
+            const idx = state.searchResults.length;
+            state.searchResults.push({ type: 'single', pathKey, dataArr });
 
-                let displayPath = pathKey;
-                if (dataArr.length > 1) {
-                    displayPath += ` <span class="text-xs bg-slate-200 px-1.5 py-0.5 rounded-md text-slate-500 font-bold ml-2 border border-slate-300">Reg ${index + 1}</span>`;
-                }
-                
-                if (state.mode === 'package' && displayPath.endsWith('.dig')) displayPath = displayPath.replace(/\.dig$/i, '<span class="text-xs ml-1 bg-gt-sky text-gt-dark px-1 rounded font-bold">.dig</span>');
+            const data = dataArr[0] || {};
+            const tr   = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 transition-colors cursor-pointer group';
+            tr.onclick = () => app.openSearchDetail(idx);
+            tr.dataset.searchIdx = idx;
 
-                let rowHtml = `<td class="p-4 font-bold text-slate-700 flex items-center gap-3"><i data-lucide="${state.mode === 'package' ? 'package' : 'file-lock-2'}" class="text-gt-blue w-5 h-5 flex-shrink-0"></i><span class="truncate max-w-[250px]" title="${pathKey}">${displayPath}</span></td>`;
+            const subBadge = dataArr.length > 1 ? ` <span class="text-[10px] bg-slate-200 px-1 rounded text-slate-500 font-bold">${dataArr.length} reg.</span>` : '';
+            let cells = `<td class="p-4"><span class="text-xs text-slate-300 italic">Sin acta</span></td>`;
+            cells += `<td class="p-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="${state.mode==='package'?'package':'file-lock-2'}" class="text-gt-blue w-4 h-4 shrink-0"></i>
+                    <span class="truncate max-w-[140px] text-sm font-medium text-slate-700" title="${pathKey}">${pathKey.split('/').pop()}${subBadge}</span>
+                </div></td>`;
+            state.schema.forEach(f => { cells += `<td class="p-4 text-slate-700 max-w-[160px] truncate text-sm">${data[f.id]||'<span class="text-slate-300">-</span>'}</td>`; });
+            cells += `<td class="p-4"><span class="opacity-0 group-hover:opacity-100 text-xs text-gt-blue font-bold whitespace-nowrap">Ver →</span></td>`;
 
-                state.schema.forEach(field => {
-                    rowHtml += `<td class="p-4 text-slate-700 max-w-[200px] truncate text-sm font-medium">${data[field.id] || '<span class="text-slate-300 italic">-</span>'}</td>`;
-                });
-
-                tr.innerHTML = rowHtml;
-                tbody.appendChild(tr);
-            });
+            tr.innerHTML = cells;
+            tbody.appendChild(tr);
         });
+
         lucide.createIcons();
+    },
+
+    // --- VISOR DE DETALLE DEL BUSCADOR ---
+    openSearchDetail(idx) {
+        state.selectedSearchIndex = idx;
+        state.currentActaPageIndex = 0;
+        // Resaltar fila seleccionada
+        document.querySelectorAll('#search-table-body tr').forEach(tr => {
+            const isSelected = parseInt(tr.dataset.searchIdx) === idx;
+            tr.classList.toggle('ring-2',     isSelected);
+            tr.classList.toggle('ring-inset', isSelected);
+            tr.classList.toggle('ring-gt-blue', isSelected);
+        });
+        document.getElementById('modal-search-detail').classList.remove('hidden');
+        this._renderSearchDetail();
+        lucide.createIcons();
+    },
+
+    closeSearchDetail() {
+        document.getElementById('modal-search-detail').classList.add('hidden');
+        if (state._searchDetailObjectUrl) {
+            URL.revokeObjectURL(state._searchDetailObjectUrl);
+            state._searchDetailObjectUrl = null;
+        }
+        document.getElementById('sd-img').style.display = 'none';
+        document.getElementById('sd-img').src = '';
+    },
+
+    navSearchResult(dir) {
+        const next = state.selectedSearchIndex + dir;
+        if (next < 0 || next >= state.searchResults.length) return;
+        state.currentActaPageIndex = 0;
+        state.selectedSearchIndex  = next;
+        // Actualizar selección visual en tabla
+        document.querySelectorAll('#search-table-body tr').forEach(tr => {
+            const isSelected = parseInt(tr.dataset.searchIdx) === next;
+            tr.classList.toggle('ring-2',      isSelected);
+            tr.classList.toggle('ring-inset',  isSelected);
+            tr.classList.toggle('ring-gt-blue',isSelected);
+            if (isSelected) tr.scrollIntoView({ block: 'nearest' });
+        });
+        this._renderSearchDetail();
+    },
+
+    navActaPage(dir) {
+        const result = state.searchResults[state.selectedSearchIndex];
+        if (!result || result.type !== 'acta') return;
+        const next = state.currentActaPageIndex + dir;
+        if (next < 0 || next >= result.pages.length) return;
+        state.currentActaPageIndex = next;
+        this._renderSearchDetail();
+    },
+
+    async _renderSearchDetail() {
+        const idx    = state.selectedSearchIndex;
+        const result = state.searchResults[idx];
+        if (!result) return;
+
+        // Contador de resultados
+        document.getElementById('lbl-sd-counter').textContent = `Resultado ${idx+1} de ${state.searchResults.length}`;
+        document.getElementById('btn-sd-prev').disabled = idx === 0;
+        document.getElementById('btn-sd-next').disabled = idx === state.searchResults.length - 1;
+
+        // Determinar pathKey y data según tipo
+        let pathKey, data;
+        const actaNav = document.getElementById('sd-acta-nav');
+
+        if (result.type === 'acta') {
+            const pageCount = result.pages.length;
+            const pageIdx   = Math.min(state.currentActaPageIndex, pageCount - 1);
+            state.currentActaPageIndex = pageIdx;
+            const page = result.pages[pageIdx];
+            pathKey = page.pathKey;
+            data    = page.rec0;
+            if (pageCount > 1) {
+                actaNav.classList.remove('hidden');
+                document.getElementById('lbl-sd-page').textContent = `Pág ${pageIdx+1}/${pageCount}`;
+                document.getElementById('btn-sd-page-prev').disabled = pageIdx === 0;
+                document.getElementById('btn-sd-page-next').disabled = pageIdx === pageCount - 1;
+            } else {
+                actaNav.classList.add('hidden');
+            }
+        } else {
+            actaNav.classList.add('hidden');
+            pathKey = result.pathKey;
+            data    = result.dataArr[0] || {};
+        }
+
+        // Cargar imagen
+        await this._loadSearchImage(pathKey);
+
+        // Renderizar metadatos
+        const meta = document.getElementById('sd-meta');
+        meta.innerHTML = '';
+
+        if (result.type === 'acta') {
+            meta.innerHTML += `<div class="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                <span class="font-extrabold text-indigo-700 text-lg bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200">#${result.numActa}</span>
+                <span class="text-xs font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">${result.pages.length} página${result.pages.length!==1?'s':''}</span>
+            </div>`;
+        }
+
+        const fieldsDiv = document.createElement('div');
+        fieldsDiv.className = 'space-y-4';
+        state.schema.forEach(field => {
+            const val = data[field.id] || '';
+            fieldsDiv.innerHTML += `<div>
+                <label class="text-xs font-extrabold uppercase tracking-wide text-slate-400 block mb-0.5">${field.label}</label>
+                <p class="text-sm font-medium ${val ? 'text-slate-800' : 'text-slate-300 italic'}">${val || 'Sin datos'}</p>
+            </div>`;
+        });
+        meta.appendChild(fieldsDiv);
+
+        meta.innerHTML += `<div class="mt-5 pt-4 border-t border-slate-100">
+            <p class="text-[10px] font-mono text-slate-400 break-all">${pathKey}</p>
+        </div>`;
+    },
+
+    async _loadSearchImage(pathKey) {
+        const imgEl = document.getElementById('sd-img');
+        const noImg = document.getElementById('sd-no-img');
+        imgEl.style.display = 'none';
+        noImg.style.display = 'block';
+
+        if (state._searchDetailObjectUrl) {
+            URL.revokeObjectURL(state._searchDetailObjectUrl);
+            state._searchDetailObjectUrl = null;
+        }
+
+        const item = state.images.find(img => img.fullPath === pathKey);
+        if (!item) return;
+
+        try {
+            let src;
+            if (item.blob) {
+                src = URL.createObjectURL(item.blob);
+            } else if (item.handle) {
+                const file = await item.handle.getFile();
+                const blob = new Blob([await file.arrayBuffer()], { type: 'image/jpeg' });
+                src = URL.createObjectURL(blob);
+            }
+            if (src) {
+                state._searchDetailObjectUrl = src;
+                imgEl.src = src;
+                imgEl.style.display = 'block';
+                noImg.style.display = 'none';
+            }
+        } catch(e) {
+            console.error('Error cargando imagen en detalle:', e);
+        }
+    },
+
+    printSearchResult() {
+        const result = state.searchResults[state.selectedSearchIndex];
+        if (!result) return;
+        let pathKey, data;
+        if (result.type === 'acta') {
+            const page = result.pages[state.currentActaPageIndex] || result.pages[0];
+            pathKey = page.pathKey;
+            data    = page.rec0;
+        } else {
+            pathKey = result.pathKey;
+            data    = result.dataArr[0] || {};
+        }
+        const imgSrc = document.getElementById('sd-img').src || '';
+        const imgTag = imgSrc && !imgSrc.endsWith('sd-img') ? `<img src="${imgSrc}" style="max-width:100%;max-height:380px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;margin-bottom:16px" />` : '';
+        const actaH  = result.type === 'acta' ? `<div style="margin-bottom:12px"><span style="background:#e0e7ff;color:#3730a3;font-weight:bold;padding:4px 14px;border-radius:8px;font-size:14px">#Acta ${result.numActa} — ${result.pages.length} pág.</span></div>` : '';
+        const fields = state.schema.map(f => `<tr><td style="font-weight:700;padding:5px 14px;color:#475569;font-size:11px;text-transform:uppercase;white-space:nowrap;vertical-align:top">${f.label}</td><td style="padding:5px 14px;font-size:13px;color:#1e293b">${data[f.id]||'<em style="color:#cbd5e1">-</em>'}</td></tr>`).join('');
+        document.getElementById('print-area').innerHTML = `
+            <div style="font-family:system-ui,sans-serif;max-width:860px;margin:0 auto;padding:28px">
+                <div style="border-bottom:3px solid #1e40af;padding-bottom:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end">
+                    <div>
+                        <h1 style="font-size:20px;font-weight:900;color:#1e3a8a;margin:0">Archivo Histórico Digital</h1>
+                        <p style="font-size:11px;color:#64748b;margin:3px 0 0">${new Date().toLocaleDateString('es-GT',{dateStyle:'long'})}</p>
+                    </div>
+                    <p style="font-size:10px;color:#94a3b8;font-family:monospace">${pathKey}</p>
+                </div>
+                ${actaH}${imgTag}
+                <table style="width:100%;border-collapse:collapse">${fields}</table>
+            </div>`;
+        window.print();
     },
 
     toggleGroupField() {
@@ -384,8 +702,107 @@ Object.assign(window.app, {
         const adminPwd = document.getElementById('input-admin-pwd').value;
         const indexMode = document.getElementById('select-index-mode').value;
         const groupField = document.getElementById('input-group-field').value;
-        
         app.saveSecurityConfig(consultPwd, adminPwd, indexMode, groupField);
         document.getElementById('modal-security-config').classList.add('hidden');
+    },
+
+    // --- MÉTODOS DE AGRUPACIÓN POR ACTA ---
+    toggleActaMode() {
+        state.actaModeActive = !state.actaModeActive;
+        if (state.actaModeActive && !state.currentActaNum) {
+            // Sugerir el siguiente número disponible
+            let maxNum = 0;
+            state.images.forEach(img => {
+                const r = state.records[img.fullPath];
+                if (r && r[0] && r[0]._num_acta) { const n = parseInt(r[0]._num_acta); if (!isNaN(n) && n > maxNum) maxNum = n; }
+            });
+            state.currentActaNum = String(maxNum + 1);
+        }
+        this.renderForm();
+    },
+
+    setCurrentActaNum(value) {
+        state.currentActaNum = value;
+        // Si esta imagen ya está incluida en el acta, actualizar su clave
+        if (!state.images.length) return;
+        const fp   = state.images[state.currentIndex].fullPath;
+        const rec0 = state.records[fp] && state.records[fp][0] ? state.records[fp][0] : null;
+        if (rec0 && rec0._num_acta) this.setNumActa(value);
+        // Actualizar badge
+        let count = 0;
+        if (value) state.images.forEach(img => { const r = state.records[img.fullPath]; if (r && r[0] && r[0]._num_acta === value) count++; });
+        const badge = document.getElementById('lbl-acta-img-count');
+        if (badge) {
+            badge.textContent = count > 1 ? '📄 ' + count + ' imágenes' : '';
+            badge.className   = count > 1 ? 'text-xs font-bold bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-md' : 'hidden';
+        }
+    },
+
+    includeImageInActa(checked) {
+        if (!state.isAdmin || !state.images.length) return;
+        const fp = state.images[state.currentIndex].fullPath;
+        if (!state.records[fp]) state.records[fp] = [{}];
+        if (!Array.isArray(state.records[fp])) state.records[fp] = [state.records[fp]];
+        if (checked) {
+            const numActa = state.currentActaNum || '';
+            let maxPage = 0;
+            state.images.forEach(img => {
+                const r = state.records[img.fullPath];
+                if (r && r[0] && r[0]._num_acta === numActa && r[0]._num_pagina) {
+                    const n = parseInt(r[0]._num_pagina);
+                    if (!isNaN(n) && n > maxPage) maxPage = n;
+                }
+            });
+            state.records[fp][0]._num_acta   = numActa;
+            state.records[fp][0]._num_pagina = String(maxPage + 1);
+        } else {
+            delete state.records[fp][0]._num_acta;
+            delete state.records[fp][0]._num_pagina;
+        }
+        db.put(fp, state.records[fp]);
+        app.saveLocalMetadata(fp);
+        this.renderForm();
+    },
+
+    nextActaPage() {
+        if (!state.isAdmin || state.currentIndex >= state.images.length - 1) return;
+        const curPath = state.images[state.currentIndex].fullPath;
+        const curRec0 = (state.records[curPath] && state.records[curPath][0]) ? { ...state.records[curPath][0] } : {};
+        state.currentIndex++;
+        const nextPath = state.images[state.currentIndex].fullPath;
+        if (!state.records[nextPath]) state.records[nextPath] = [{}];
+        if (!Array.isArray(state.records[nextPath])) state.records[nextPath] = [state.records[nextPath]];
+        const nextRec = { ...curRec0 };
+        if (curRec0._num_pagina) {
+            const n = parseInt(curRec0._num_pagina);
+            nextRec._num_pagina = isNaN(n) ? curRec0._num_pagina : String(n + 1);
+        } else {
+            nextRec._num_acta   = state.currentActaNum;
+            nextRec._num_pagina = '1';
+        }
+        state.records[nextPath][0] = nextRec;
+        db.put(nextPath, state.records[nextPath]);
+        app.saveLocalMetadata(nextPath);
+        this.loadImage();
+    },
+
+    setNumActa(value) {
+        if (!state.isAdmin || !state.images.length) return;
+        const fp = state.images[state.currentIndex].fullPath;
+        if (!state.records[fp]) state.records[fp] = [{}];
+        if (!Array.isArray(state.records[fp])) state.records[fp] = [state.records[fp]];
+        state.records[fp][0]._num_acta = value;
+        db.put(fp, state.records[fp]);
+        app.saveLocalMetadata(fp);
+    },
+
+    setNumPagina(value) {
+        if (!state.isAdmin || !state.images.length) return;
+        const fp = state.images[state.currentIndex].fullPath;
+        if (!state.records[fp]) state.records[fp] = [{}];
+        if (!Array.isArray(state.records[fp])) state.records[fp] = [state.records[fp]];
+        state.records[fp][0]._num_pagina = value;
+        db.put(fp, state.records[fp]);
+        app.saveLocalMetadata(fp);
     }
 });

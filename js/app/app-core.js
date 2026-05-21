@@ -135,5 +135,17 @@ Object.assign(window.app, {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+    },
+
+    toggleCustomType() {
+        const sel   = document.getElementById('select-collection-type');
+        const input = document.getElementById('input-custom-type');
+        if (!sel || !input) return;
+        if (sel.value === '__custom__') {
+            input.classList.remove('hidden');
+            input.focus();
+        } else {
+            input.classList.add('hidden');
+        }
     }
 });

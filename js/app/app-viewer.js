@@ -12,8 +12,13 @@ Object.assign(window.app, {
 
         const currentItem = state.images[state.currentIndex];
 
-        const folderDisplayName = state.activeFolder.split('/').pop();
+        // Mostrar jerarquía completa: Colección › Libro › Trabajo
+        const folderParts = state.activeFolder.split('/');
+        // Omitir el nombre del directorio raíz (primer elemento) y mostrar el resto como ruta de contexto
+        const contextParts = folderParts.length > 1 ? folderParts.slice(1) : folderParts;
+        const folderDisplayName = contextParts.join(' › ');
         document.getElementById('lbl-active-folder').innerText = folderDisplayName;
+        document.getElementById('lbl-active-folder').title = state.activeFolder;
         
         if (state.collectionConfig && state.collectionConfig.mode === 'folder') {
             document.getElementById('lbl-file-name').innerText = `Página ${state.currentIndex + 1} de ${state.images.length}`;

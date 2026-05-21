@@ -60,5 +60,13 @@ const db = {
                 resolve(resultObj);
             };
         });
+    },
+    async clearAll() {
+        return new Promise((resolve) => {
+            if (!this.instance) return resolve();
+            const tx = this.instance.transaction('records', 'readwrite');
+            tx.objectStore('records').clear();
+            tx.oncomplete = resolve;
+        });
     }
 };

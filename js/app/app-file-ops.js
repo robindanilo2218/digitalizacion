@@ -52,7 +52,7 @@ Object.assign(window.app, {
             const scanDirectory = async (handle, currentPath) => {
                 for await (const entry of handle.values()) {
                     if (entry.kind === 'file') {
-                        if (entry.name.match(/\.(jpg|jpeg|png|webp|dig|pag)$/i)) {
+                        if (entry.name.match(/\.(jpg|jpeg|png|webp|pag)$/i)) {
                             const folderName = currentPath || dirHandle.name;
                             if (!groupedFolders[folderName]) groupedFolders[folderName] = [];
 
@@ -117,6 +117,8 @@ Object.assign(window.app, {
 
         state.mode = 'package';
         state.folders = {};
+        state.records = {}; // Limpiar registros previos para evitar contaminación de sesiones anteriores
+        await db.clearAll();  // Limpiar IndexedDB de entradas de sesiones locales anteriores
         let totalFiles = 0;
 
         try {
@@ -154,7 +156,7 @@ Object.assign(window.app, {
                         const nestedZip = await JSZip.loadAsync(nestedBlob);
                         await extractZip(nestedZip, prefixPath + path + "/");
                     }
-                    else if (path.match(/\.(jpg|jpeg|png|webp|dig|pag)$/i)) {
+                    else if (path.match(/\.(jpg|jpeg|png|webp|pag)$/i)) {
                         const name = path.split('/').pop();
                         let folderName = prefixPath + (path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : 'Raíz_Paquete');
                         folderName = folderName.replace(/\/$/, "");
@@ -270,8 +272,25 @@ Object.assign(window.app, {
     // 4. EJECUTAR EMPAQUETADO (Generar .CLL con .XLB y .DIG)
     async executePackaging() {
         const collectionName = document.getElementById('input-collection-name').value.trim() || 'Coleccion_Sin_Nombre';
-        const collectionType = document.getElementById('select-collection-type').value;
+        const typeSelect     = document.getElementById('select-collection-type').value;
+        const collectionType = typeSelect === '__custom__'
+            ? (document.getElementById('input-custom-type').value.trim() || 'Varios')
+            : typeSelect;
+        const institution  = document.getElementById('input-institution').value.trim();
+        const municipio    = document.getElementById('input-municipio').value.trim();
+        const departamento = document.getElementById('input-departamento').value.trim();
+        const yearStart    = document.getElementById('input-year-start').value.trim();
+        const yearEnd      = document.getElementById('input-year-end').value.trim();
+        const notes        = document.getElementById('input-collection-notes').value.trim();
 
+        // Metadatos descriptivos de la colección
+        const collectionMeta = {
+            institution,
+            municipio,
+            departamento,
+            yearRange: yearStart || yearEnd ? `${yearStart || '?'} - ${yearEnd || '?'}` : '',
+            notes
+        };
         document.getElementById('modal-package-config').classList.add('hidden');
         this.showLoader("Compilando Colección Maestra (.cll)", "Generando libros (.xlb), imágenes (.pag) y metadatos (.dig)...");
 
@@ -332,8 +351,10 @@ Object.assign(window.app, {
                 const bookPayload = {
                     version: "7.0-Coleccion",
                     timestamp: new Date().toISOString(),
+                    collectionName: collectionName,
                     bookName: bookName,
                     type: collectionType,
+                    ...collectionMeta,
                     schema: state.schema,
                     records: bookRecords
                 };
@@ -350,6 +371,7 @@ Object.assign(window.app, {
                 timestamp: new Date().toISOString(),
                 collectionName: collectionName,
                 type: collectionType,
+                ...collectionMeta,
                 schema: state.schema,
                 records: masterRecords
             };
@@ -378,32 +400,45 @@ Object.assign(window.app, {
         if (!state.canWriteLocal || !state.rootDirHandle) return;
         try {
             const parts = fullPath.split('/');
-            parts.pop(); // Remove image name
-            parts.shift(); // Remove root handle name
-            
+
+            // En modo folder, fullPath ES la carpeta activa (termina en nombre de directorio, no en archivo).
+            // En modo standard, fullPath termina en el nombre de la imagen (.jpg/.pag etc.).
+            // Solo hacemos pop() si el último segmento parece un archivo con extensión de imagen.
+            const isFilePath = /\.(jpg|jpeg|png|webp|pag)$/i.test(parts[parts.length - 1]);
+            if (isFilePath) {
+                parts.pop(); // Quitar nombre de imagen para llegar a la carpeta contenedora
+            }
+            parts.shift(); // Quitar nombre del directorio raíz (rootDirHandle.name)
+
             let currentHandle = state.rootDirHandle;
             for (const part of parts) {
                 currentHandle = await currentHandle.getDirectoryHandle(part, { create: false });
             }
-            
+
             const fileHandle = await currentHandle.getFileHandle('metadatos.lib', { create: true });
             const writable = await fileHandle.createWritable();
-            
-            const folderPrefix = fullPath.substring(0, fullPath.lastIndexOf('/')) + '/';
+
+            // Determinar el prefijo de ruta para filtrar solo los registros de ESTA carpeta
+            // En folder mode: el prefijo es el propio fullPath + '/'
+            // En standard mode: el prefijo es el directorio que contiene la imagen
+            const folderPrefix = isFilePath
+                ? fullPath.substring(0, fullPath.lastIndexOf('/')) + '/'
+                : fullPath + '/';
+
             const folderRecords = {};
             for (let pathKey in state.records) {
                 if (pathKey.startsWith(folderPrefix)) {
                     folderRecords[pathKey] = state.records[pathKey];
                 }
             }
-            
+
             const payload = {
                 version: "8.0-Local",
                 timestamp: new Date().toISOString(),
                 schema: state.schema,
                 records: folderRecords
             };
-            
+
             await writable.write(JSON.stringify(payload, null, 2));
             await writable.close();
         } catch (e) {
