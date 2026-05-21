@@ -92,10 +92,10 @@
                 </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-4 mt-6 justify-center">
-                <!-- Botón para Cargar Carpeta Local (Consultor / Archivista) -->
+                <!-- Botón para Digitalización (Solo Archivista) -->
                 <button id="btn-scan-local" onclick="app.selectRootFolder()"
-                    class="flex items-center justify-center gap-3 px-8 py-4 bg-gt-dark text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg font-semibold text-lg border border-slate-700">
-                    <i data-lucide="folder-search"></i> Explorar Carpeta Local
+                    class="hidden items-center justify-center gap-3 px-8 py-4 bg-gt-dark text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg font-semibold text-lg border border-slate-700">
+                    <i data-lucide="camera"></i> Nueva Digitalización (Local)
                 </button>
                 <!-- Botón de Paquetes -->
                 <button id="btn-open-packages" onclick="document.getElementById('open-package-input').click()"
@@ -538,8 +538,12 @@
                 <img id="sd-img" alt="Documento" class="max-h-full max-w-full object-contain rounded-lg shadow-2xl" style="display:none" />
                 <div id="sd-no-img" class="text-center">
                     <i data-lucide="image-off" class="w-20 h-20 text-slate-700 mx-auto mb-4"></i>
-                    <p class="text-slate-500 font-medium">Imagen no disponible en este contexto</p>
-                    <p class="text-slate-600 text-xs mt-2">La imagen puede estar fuera del paquete cargado</p>
+                    <p class="text-slate-500 font-bold text-lg mb-4">Imagen no cargada en la memoria actual.</p>
+                    <p class="text-slate-600 text-sm max-w-md mx-auto mb-6 leading-relaxed">Por seguridad y rendimiento, la caché de imágenes se limpia al salir. Vuelve a abrir el paquete correspondiente para revincular las imágenes al catálogo.</p>
+                    <button onclick="document.getElementById('modal-search-detail').classList.add('hidden'); document.getElementById('open-package-input').click();"
+                        class="px-6 py-3 bg-gt-blue hover:bg-opacity-90 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 mx-auto">
+                        <i data-lucide="package-open" class="w-5 h-5"></i> Abrir Paquetes
+                    </button>
                 </div>
             </div>
 

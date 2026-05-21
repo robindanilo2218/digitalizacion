@@ -341,22 +341,34 @@ Object.assign(window.app, {
             div.appendChild(label);
 
             if (field.type === 'textarea') {
-                const textarea = document.createElement('textarea');
-                textarea.className = `w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-gt-sky focus:border-gt-sky transition-all outline-none resize-y min-h-[120px] shadow-sm text-sm font-medium text-slate-800 ${!state.isAdmin ? 'opacity-80 bg-slate-100 cursor-not-allowed' : ''}`;
-                textarea.placeholder = state.isAdmin ? `Escribir ${field.label.toLowerCase()}...` : 'Sin datos registrados';
-                textarea.value = recordData[field.id] || '';
-                if (state.isAdmin) textarea.oninput = (e) => this.updateRecord(field.id, e.target.value);
-                else textarea.readOnly = true;
-                div.appendChild(textarea);
+                if (state.isAdmin) {
+                    const textarea = document.createElement('textarea');
+                    textarea.className = `w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-gt-sky focus:border-gt-sky transition-all outline-none resize-y min-h-[120px] shadow-sm text-sm font-medium text-slate-800`;
+                    textarea.placeholder = `Escribir ${field.label.toLowerCase()}...`;
+                    textarea.value = recordData[field.id] || '';
+                    textarea.oninput = (e) => this.updateRecord(field.id, e.target.value);
+                    div.appendChild(textarea);
+                } else {
+                    const p = document.createElement('p');
+                    p.className = "text-sm text-slate-700 font-medium whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner min-h-[120px]";
+                    p.innerText = recordData[field.id] || 'Sin datos registrados';
+                    div.appendChild(p);
+                }
             } else {
-                const input = document.createElement('input');
-                input.type = field.type;
-                input.className = `w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-gt-sky focus:border-gt-sky transition-all outline-none shadow-sm text-sm font-medium text-slate-800 ${!state.isAdmin ? 'opacity-80 bg-slate-100 cursor-not-allowed' : ''}`;
-                input.placeholder = state.isAdmin ? `Escribir ${field.label.toLowerCase()}...` : 'Sin datos registrados';
-                input.value = recordData[field.id] || '';
-                if (state.isAdmin) input.oninput = (e) => this.updateRecord(field.id, e.target.value);
-                else input.readOnly = true;
-                div.appendChild(input);
+                if (state.isAdmin) {
+                    const input = document.createElement('input');
+                    input.type = field.type;
+                    input.className = `w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-gt-sky focus:border-gt-sky transition-all outline-none shadow-sm text-sm font-medium text-slate-800`;
+                    input.placeholder = `Escribir ${field.label.toLowerCase()}...`;
+                    input.value = recordData[field.id] || '';
+                    input.oninput = (e) => this.updateRecord(field.id, e.target.value);
+                    div.appendChild(input);
+                } else {
+                    const p = document.createElement('p');
+                    p.className = "text-sm text-slate-700 font-medium bg-slate-50 p-3.5 rounded-xl border border-slate-200 shadow-inner";
+                    p.innerText = recordData[field.id] || 'Sin datos registrados';
+                    div.appendChild(p);
+                }
             }
 
             container.appendChild(div);
