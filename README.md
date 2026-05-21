@@ -22,11 +22,11 @@ Destaca por su capacidad para manejar miles de registros en memoria mediante la 
 
 ## ✨ Características Principales
 
-- 📦 **Soporte Nativo de Paquetes:** Abre y visualiza paquetes estructurados (`.xlb`) directamente en el navegador.
+- 📦 **Soporte Nativo de Paquetes:** Abre y visualiza paquetes jerárquicos (`.cll`, `.xlb`, `.jor`) directamente en el navegador.
 - ⚡ **Rendimiento Extremo:** Gestión de memoria delegada a IndexedDB. No se congela incluso con cargas masivas.
 - 🔍 **Buscador General Unificado:** Búsqueda instantánea por nombre, fecha, folio, libro o notas en el catálogo histórico central.
 - 📱 **PWA Completa:** Instalable en computadoras de escritorio, tablets y dispositivos móviles.
-- 🛠️ **Herramientas de Digitalización:** Incluye scripts nativos automatizados (`.bat` para Windows y `.sh` para Linux/macOS) que preparan las carpetas de imágenes y las empaquetan en archivos ofuscados `.xlb`.
+- 🛠️ **Herramientas de Digitalización:** Incluye scripts nativos automatizados (`empaquetar.bat` y `empaquetar.sh`) que preparan las carpetas de trabajo diario, comprimen libros en `.xlb`, y compilan colecciones enteras en archivos `.cll`.
 - 🔒 **Modo Archivista Restringido:** Zona administrativa secreta para creación y edición de metadatos (accesible vía triple-tap y clave).
 
 ## 🚀 Empezando
@@ -43,11 +43,26 @@ python3 -m http.server 8000
 Visita `http://localhost:8000` en tu navegador.
 
 ### 2. Uso para Digitalizadores
-El sistema permite que los operarios descarguen la **Herramienta de Empaquetado Automático** desde la misma pantalla de inicio (detectando automáticamente su sistema operativo). Esta herramienta:
-1. Toma una carpeta de imágenes escaneadas (`.jpg`).
-2. Transforma la extensión a un formato ofuscado (`.pag`).
-3. Comprime la carpeta usando algoritmos ZIP nativos.
-4. Renombra el resultado a la extensión propia del sistema (`.xlb`), dejándolo listo para su ingesta en el visualizador.
+El sistema permite trabajar de dos maneras:
+
+1. **Directorio Local:** Puede seleccionar su carpeta de trabajo raíz (ej. `Coleccion/Libro/Dia_Trabajo`). La aplicación detectará sus imágenes y guardará un archivo `metadatos.lib` localmente para no perder su progreso antes de empaquetar. Además, el sistema permite registrar múltiples entradas para una misma imagen.
+2. **Empaquetado Automático:** Desde la misma pantalla de inicio puede descargar el script de empaquetado. Este script se coloca en la carpeta de trabajo del día y al ejecutarse:
+   - Transforma las extensiones `.jpg` a un formato ofuscado `.pag`.
+   - Comprime la carpeta de trabajo del día en un archivo `.jor`.
+   - Comprime todos los días de trabajo del libro en un archivo `.xlb`.
+   - Comprime todos los libros de la colección en un archivo maestro `.cll`.
+
+### 3. Apertura de Archivos Empaquetados
+Una vez generados los paquetes, el usuario final puede abrir directamente un archivo `.cll` o un conjunto de archivos `.xlb` desde la aplicación para consultarlos de forma segura.
+
+## 📁 Jerarquía y Extensiones
+
+La aplicación utiliza un sistema jerárquico de ofuscación y empaquetado para mantener el orden:
+- `.cll` **(Colección):** Paquete maestro que agrupa múltiples libros (ej. Sistema de Archivo, Matrimonios).
+- `.xlb` **(Libro/Expediente):** Paquete que contiene las jornadas de trabajo de un libro específico.
+- `.jor` **(Jornada de Trabajo):** Paquete que agrupa el trabajo de un día o un lote específico.
+- `.pag` **(Páginas):** Imágenes ofuscadas dentro de cada jornada.
+- `.lib` **(Librería de Metadatos):** Archivo JSON interno que guarda la información registrada.
 
 ## 📁 Estructura del Proyecto
 
@@ -63,7 +78,7 @@ El sistema permite que los operarios descarguen la **Herramienta de Empaquetado 
 │   ├── app/             # Lógica modular: Visor, Archivos, UI
 │   └── main.js          # Inicialización
 ├── icons/               # Iconografía vectorial y logos
-└── convertir_a_xlb.*    # Scripts de utilería (Shell y Batch)
+└── empaquetar.*         # Scripts de utilería (Shell y Batch)
 ```
 
 ## 🔐 Zona Administrativa (Archivista)

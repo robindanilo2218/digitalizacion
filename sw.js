@@ -1,4 +1,4 @@
-const CACHE_NAME = 'archivo-historico-v1';
+const CACHE_NAME = 'archivo-historico-v2';
 const ASSETS = [
     './',
     './index.html',
@@ -7,10 +7,10 @@ const ASSETS = [
     './js/core/db.js',
     './js/core/state.js',
     './js/app/app-core.js',
+    './js/app/app-dashboard.js',
     './js/app/app-file-ops.js',
     './js/app/app-viewer.js',
     './js/app/app-ui.js',
-    './js/main.js',
     './manifest.json',
     './icons/icon.svg',
     './icons/icon-192.png',

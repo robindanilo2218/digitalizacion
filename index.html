@@ -45,13 +45,17 @@
         </div>
 
         <div class="flex bg-slate-800/50 p-1.5 rounded-xl border border-white/10 gap-1 backdrop-blur-sm">
+            <button onclick="app.switchView('dashboard')" id="btn-nav-dashboard"
+                class="px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 bg-gt-sky text-gt-dark shadow-md hidden">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Catálogo
+            </button>
             <button onclick="app.switchView('workspace')" id="btn-nav-workspace"
-                class="px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 bg-gt-sky text-gt-dark shadow-md">
-                <i data-lucide="book-open" class="w-4 h-4"></i> Visor de Documentos
+                class="px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 text-slate-300 hover:text-white hover:bg-white/10">
+                <i data-lucide="book-open" class="w-4 h-4"></i> Visor
             </button>
             <button onclick="app.switchView('search')" id="btn-nav-search"
                 class="px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 text-slate-300 hover:text-white hover:bg-white/10">
-                <i data-lucide="search" class="w-4 h-4"></i> Buscador General
+                <i data-lucide="search" class="w-4 h-4"></i> Buscador
             </button>
         </div>
     </nav>
@@ -81,26 +85,26 @@
                     </p>
                 </div>
             </div>
-            <div class="flex flex-col sm:flex-row gap-4 mt-6">
+            <div class="flex flex-col sm:flex-row gap-4 mt-6 justify-center">
                 <!-- Botón solo para Admin -->
                 <button id="btn-scan-local" onclick="app.selectRootFolder()"
                     class="hidden items-center justify-center gap-3 px-8 py-4 bg-gt-dark text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg font-semibold text-lg border border-slate-700">
                     <i data-lucide="camera"></i> Nueva Digitalización (Local)
                 </button>
-                <!-- Botón para todos -->
-                <button onclick="document.getElementById('open-package-input').click()"
-                    class="flex items-center justify-center gap-3 px-8 py-4 bg-gt-blue text-white rounded-xl hover:bg-opacity-90 transition-all shadow-lg font-semibold text-lg border border-gt-sky">
+                <!-- Botón de Paquetes (Admin Only) -->
+                <button id="btn-open-packages" onclick="document.getElementById('open-package-input').click()"
+                    class="hidden items-center justify-center gap-3 px-8 py-4 bg-gt-blue text-white rounded-xl hover:bg-opacity-90 transition-all shadow-lg font-semibold text-lg border border-gt-sky">
                     <i data-lucide="package-open"></i> Abrir Paquetes
                 </button>
-                <input type="file" id="open-package-input" accept=".xlb,.zip,.dig,.cll" class="hidden"
+                <input type="file" id="open-package-input" accept=".cll,.xlb,.jor,.dig,.lib,.zip" class="hidden"
                     onchange="app.openPackage(event)" multiple>
             </div>
 
             <!-- Botón para descargar script -->
-            <div class="mt-2 flex flex-col items-center">
+            <div id="btn-download-script" class="hidden mt-2 flex-col items-center">
                 <button onclick="app.downloadCompressionTool()"
                     class="flex items-center justify-center gap-2 px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all shadow-sm font-semibold text-sm border border-slate-300 mt-2">
-                    <i data-lucide="download" class="w-4 h-4"></i> Descargar Herramienta de Empaquetado Automático
+                    <i data-lucide="download" class="w-4 h-4"></i> Descargar Script Empaquetar (bat/sh)
                 </button>
             </div>
 
@@ -112,6 +116,25 @@
                         class="text-gt-blue hover:underline font-medium">crgm.app</a></p>
                 <p>Código fuente: <a href="https://github.com/robindanilo2218/digitalizacion" target="_blank"
                         class="text-gt-blue hover:underline font-mono">github.com/robindanilo2218/digitalizacion</a></p>
+            </div>
+        </div>
+
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboard-view" class="hidden h-full overflow-y-auto bg-slate-50 p-8 fade-in">
+            <div class="max-w-6xl mx-auto space-y-8">
+                <!-- Header del Dashboard -->
+                <div class="flex items-end justify-between border-b border-slate-200 pb-4">
+                    <div>
+                        <h2 class="text-3xl font-black text-gt-dark">Catálogo Digital</h2>
+                        <p class="text-slate-500 font-medium mt-1">Explora las colecciones y documentos disponibles.</p>
+                    </div>
+                    <button onclick="app.renderDashboard()" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg shadow-sm hover:bg-slate-50 font-bold text-sm transition-colors flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Actualizar
+                    </button>
+                </div>
+                
+                <!-- Contenedor dinámico del Dashboard -->
+                <div id="dashboard-container" class="space-y-8"></div>
             </div>
         </div>
 
@@ -156,6 +179,10 @@
                             <button id="btn-export-dig" onclick="app.exportDig()"
                                 class="flex-1 bg-gt-sky/20 text-gt-blue hover:bg-gt-sky/40 border border-gt-sky/50 py-2 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm">
                                 <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar .dig
+                            </button>
+                            <button onclick="app.openSecurityModal()"
+                                class="flex-none bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center transition-colors shadow-sm" title="Configurar Seguridad">
+                                <i data-lucide="shield" class="w-3.5 h-3.5"></i>
                             </button>
                         </div>
                     </div>
@@ -220,9 +247,13 @@
                             class="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"><i
                                 data-lucide="zoom-in" class="w-5 h-5"></i></button>
                         <div class="w-px h-8 bg-white/20 my-auto mx-2"></div>
-                        <button onclick="app.setRotation()"
+                        <button onclick="app.setRotation()" title="Rotar"
                             class="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"><i
                                 data-lucide="rotate-cw" class="w-5 h-5"></i></button>
+                        <div class="w-px h-8 bg-white/20 my-auto mx-2"></div>
+                        <button onclick="app.printDocument()" title="Imprimir"
+                            class="p-2.5 bg-gt-blue/80 hover:bg-gt-blue text-white rounded-xl transition-colors"><i
+                                data-lucide="printer" class="w-5 h-5"></i></button>
                     </div>
 
                     <div class="flex-1 overflow-auto flex items-center justify-center p-6 relative">
@@ -323,6 +354,47 @@
         </div>
     </div>
 
+    <!-- Modal Configuración de Seguridad -->
+    <div id="modal-security-config" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+            <div class="bg-gt-dark p-5 border-b border-slate-700">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <i data-lucide="shield-alert" class="w-5 h-5 text-gt-sky"></i>
+                    Seguridad de la Colección
+                </h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-xs text-slate-500 mb-2">Establece contraseñas para esta colección. Déjalas en blanco para acceso libre.</p>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Contraseña de Consulta (Público)</label>
+                    <input type="text" id="input-consult-pwd" placeholder="Ej. 12345" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue focus:border-transparent text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Contraseña de Archivista (Edición)</label>
+                    <input type="text" id="input-admin-pwd" placeholder="Ej. admin123" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800">
+                </div>
+                <div class="border-t border-slate-200 pt-4 mt-2">
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Modo de Indexación</label>
+                    <select id="select-index-mode" onchange="app.toggleGroupField()" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800">
+                        <option value="standard">Estándar (1 Imagen = 1 Documento)</option>
+                        <option value="folder">Opción B: Agrupar por Subcarpeta (Actas)</option>
+                        <option value="field">Opción A: Agrupar por Campo Clave</option>
+                    </select>
+                </div>
+                <div id="container-group-field" class="hidden">
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Campo Agrupador (ID)</label>
+                    <input type="text" id="input-group-field" placeholder="Ej. numero_acta" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gt-blue text-slate-800">
+                </div>
+            </div>
+            <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                <button onclick="document.getElementById('modal-security-config').classList.add('hidden')" class="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button>
+                <button onclick="app.saveSecurityFromModal()" class="px-5 py-2.5 rounded-xl font-bold bg-gt-blue text-white hover:bg-opacity-90 transition-colors shadow-md flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Loader Overlay Global -->
     <div id="global-loader"
         class="hidden fixed inset-0 bg-gt-dark/90 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white">
@@ -334,6 +406,7 @@
     <script src="js/core/db.js"></script>
     <script src="js/core/state.js"></script>
     <script src="js/app/app-core.js"></script>
+    <script src="js/app/app-dashboard.js"></script>
     <script src="js/app/app-file-ops.js"></script>
     <script src="js/app/app-viewer.js"></script>
     <script src="js/app/app-ui.js"></script>

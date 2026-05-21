@@ -5,6 +5,7 @@ Object.assign(window.app, {
         state.activeFolder = folderName;
         state.images = state.folders[folderName] || [];
         state.currentIndex = 0;
+        state.subRecordIndex = 0;
 
         this.switchLeftTab('form');
         this.renderFolders();
@@ -13,18 +14,27 @@ Object.assign(window.app, {
 
     switchView(viewName) {
         state.view = viewName;
+        const dbBtn = document.getElementById('btn-nav-dashboard');
         const wsBtn = document.getElementById('btn-nav-workspace');
         const scBtn = document.getElementById('btn-nav-search');
+        
+        const activeClass = "px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 bg-gt-sky text-gt-dark shadow-md";
+        const inactiveClass = "px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 text-slate-300 hover:text-white hover:bg-white/10";
 
-        if (viewName === 'workspace') {
-            wsBtn.className = "px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 bg-gt-sky text-gt-dark shadow-md";
-            scBtn.className = "px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 text-slate-300 hover:text-white hover:bg-white/10";
+        if(dbBtn) dbBtn.className = viewName === 'dashboard' ? activeClass : inactiveClass;
+        if(wsBtn) wsBtn.className = viewName === 'workspace' ? activeClass : inactiveClass;
+        if(scBtn) scBtn.className = viewName === 'search' ? activeClass : inactiveClass;
+
+        document.getElementById('dashboard-view').classList.add('hidden');
+        document.getElementById('workspace-view').classList.add('hidden');
+        document.getElementById('search-view').classList.add('hidden');
+
+        if (viewName === 'dashboard') {
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            if (app.renderDashboard) app.renderDashboard();
+        } else if (viewName === 'workspace') {
             document.getElementById('workspace-view').classList.remove('hidden');
-            document.getElementById('search-view').classList.add('hidden');
-        } else {
-            scBtn.className = "px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 bg-gt-sky text-gt-dark shadow-md";
-            wsBtn.className = "px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 text-slate-300 hover:text-white hover:bg-white/10";
-            document.getElementById('workspace-view').classList.add('hidden');
+        } else if (viewName === 'search') {
             document.getElementById('search-view').classList.remove('hidden');
             this.renderSearchTable();
         }
@@ -61,12 +71,22 @@ Object.assign(window.app, {
 
     updateRecord(fieldId, value) {
         if (!state.isAdmin) return;
-        const fullPath = state.images[state.currentIndex].fullPath;
-        if (!state.records[fullPath]) state.records[fullPath] = {};
+        let fullPath = state.images[state.currentIndex].fullPath;
+        if (state.collectionConfig && state.collectionConfig.mode === 'folder') {
+            fullPath = state.activeFolder;
+        }
 
-        state.records[fullPath][fieldId] = value;
+        if (!state.records[fullPath]) state.records[fullPath] = [{}];
+        if (!Array.isArray(state.records[fullPath])) {
+            state.records[fullPath] = [state.records[fullPath]];
+        }
+
+        state.records[fullPath][state.subRecordIndex][fieldId] = value;
         // Guardado directo en IndexedDB para persistencia anti-cierres
         db.put(fullPath, state.records[fullPath]);
+        
+        // Guardado local (File System Access)
+        app.saveLocalMetadata(fullPath);
     },
 
     applyBatchData() {
@@ -75,17 +95,36 @@ Object.assign(window.app, {
 
         const confirmLibro = prompt(`Aplicar texto a las ${state.images.length} imágenes del lote:`, folderName);
         if (confirmLibro === null) return;
+        
+        const confirmUbicacion = prompt(`(Opcional) Ubicación física de este lote (Ej. Estante A):`, "");
 
-        state.images.forEach(item => {
-            if (!state.records[item.fullPath]) state.records[item.fullPath] = {};
-            state.records[item.fullPath]['nombre_libro'] = confirmLibro;
+        state.images.forEach((item, index) => {
+            let fullPath = item.fullPath;
+            if (state.collectionConfig && state.collectionConfig.mode === 'folder') {
+                fullPath = state.activeFolder;
+            }
+
+            if (!state.records[fullPath]) state.records[fullPath] = [{}];
+            if (!Array.isArray(state.records[fullPath])) {
+                state.records[fullPath] = [state.records[fullPath]];
+            }
+            state.records[fullPath].forEach((record, subIndex) => {
+                record['nombre_libro'] = confirmLibro;
+                if (confirmUbicacion) record['ubicacion_fisica'] = confirmUbicacion;
+                
+                if (!record['codigo_rastreo']) {
+                    const serialCode = `${folderName}-${String(index + 1).padStart(4, '0')}${subIndex > 0 ? '.'+subIndex : ''}`;
+                    record['codigo_rastreo'] = serialCode;
+                }
+            });
+            app.saveLocalMetadata(fullPath);
         });
 
         // Sincronizar actualización masiva con IndexedDB
         db.putBulk(state.records);
 
         this.renderForm();
-        alert(`Autocompletado exitoso y respaldado en la base de datos local.`);
+        alert(`Autocompletado exitoso y trazabilidad añadida.`);
     },
 
     renderFolders() {
@@ -119,12 +158,82 @@ Object.assign(window.app, {
         lucide.createIcons();
     },
 
+    switchSubRecord(index) {
+        state.subRecordIndex = index;
+        this.renderForm();
+    },
+
+    addSubRecord() {
+        if (!state.isAdmin) return;
+        let fullPath = state.images[state.currentIndex].fullPath;
+        if (state.collectionConfig && state.collectionConfig.mode === 'folder') {
+            fullPath = state.activeFolder;
+        }
+
+        if (!state.records[fullPath]) state.records[fullPath] = [{}];
+        if (!Array.isArray(state.records[fullPath])) {
+            state.records[fullPath] = [state.records[fullPath]];
+        }
+        
+        if (state.records[fullPath].length >= 4) {
+            alert("El límite máximo es 4 registros por documento.");
+            return;
+        }
+
+        state.records[fullPath].push({});
+        state.subRecordIndex = state.records[fullPath].length - 1;
+        this.renderForm();
+        
+        db.put(fullPath, state.records[fullPath]);
+        app.saveLocalMetadata(fullPath);
+    },
+
     renderForm() {
         const container = document.getElementById('dynamic-form-container');
+        if (!container) return;
         container.innerHTML = '';
 
-        const fullPath = state.images.length > 0 ? state.images[state.currentIndex].fullPath : null;
-        const recordData = fullPath && state.records[fullPath] ? state.records[fullPath] : {};
+        let fullPath = state.images.length > 0 ? state.images[state.currentIndex].fullPath : null;
+        if (state.collectionConfig && state.collectionConfig.mode === 'folder' && state.activeFolder) {
+            fullPath = state.activeFolder;
+        }
+        
+        if (fullPath) {
+            if (state.records[fullPath] && !Array.isArray(state.records[fullPath])) {
+                state.records[fullPath] = [state.records[fullPath]];
+            }
+        }
+        
+        const recordsArray = fullPath && state.records[fullPath] ? state.records[fullPath] : [{}];
+        
+        if (state.subRecordIndex >= recordsArray.length) {
+            state.subRecordIndex = 0;
+        }
+        
+        const recordData = recordsArray[state.subRecordIndex] || {};
+
+        // Subrecord Tabs
+        const tabsDiv = document.createElement('div');
+        tabsDiv.className = "flex gap-2 mb-4 overflow-x-auto pb-1";
+        
+        recordsArray.forEach((_, index) => {
+            const btn = document.createElement('button');
+            const isActive = state.subRecordIndex === index;
+            btn.className = `px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-colors border ${isActive ? 'bg-gt-blue text-white shadow-sm border-gt-blue' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'}`;
+            btn.innerText = `Registro ${index + 1}`;
+            btn.onclick = () => this.switchSubRecord(index);
+            tabsDiv.appendChild(btn);
+        });
+
+        if (state.isAdmin && recordsArray.length < 4) {
+            const addBtn = document.createElement('button');
+            addBtn.className = "px-2 py-1.5 text-xs font-bold rounded-lg bg-gt-sky/30 text-gt-dark hover:bg-gt-sky/60 transition-colors flex items-center gap-1 border border-gt-sky/40";
+            addBtn.innerHTML = `<i data-lucide="plus" class="w-3 h-3"></i> Añadir`;
+            addBtn.onclick = () => this.addSubRecord();
+            tabsDiv.appendChild(addBtn);
+        }
+        
+        container.appendChild(tabsDiv);
 
         state.schema.forEach(field => {
             const div = document.createElement('div');
@@ -156,6 +265,7 @@ Object.assign(window.app, {
 
             container.appendChild(div);
         });
+        lucide.createIcons();
     },
 
     addField() {
@@ -176,8 +286,14 @@ Object.assign(window.app, {
         let headerText = `${keys.length} registros gestionados por IndexedDB.`;
 
         const filtered = keys.filter(pathKey => {
+            let dataArr = state.records[pathKey];
+            if (!Array.isArray(dataArr)) dataArr = [dataArr];
+
             if (pathKey.toLowerCase().includes(term)) return true;
-            return Object.values(state.records[pathKey]).some(val => String(val).toLowerCase().includes(term));
+            
+            return dataArr.some(recordData => 
+                Object.values(recordData).some(val => String(val).toLowerCase().includes(term))
+            );
         });
 
         // LÍMITE DE DOM PARA EVITAR CONGELAMIENTO (Carga solo los primeros 100 resultados)
@@ -209,22 +325,66 @@ Object.assign(window.app, {
         thead.innerHTML = headHtml;
 
         displayResults.forEach(pathKey => {
-            const data = state.records[pathKey];
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-gt-light/50 transition-colors group cursor-default";
+            let dataArr = state.records[pathKey];
+            if (!Array.isArray(dataArr)) dataArr = [dataArr];
 
-            let displayPath = pathKey;
-            if (state.mode === 'package' && displayPath.endsWith('.dig')) displayPath = displayPath.replace(/\.dig$/i, '<span class="text-xs ml-1 bg-gt-sky text-gt-dark px-1 rounded font-bold">.dig</span>');
+            dataArr.forEach((data, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gt-light/50 transition-colors group cursor-default";
 
-            let rowHtml = `<td class="p-4 font-bold text-slate-700 flex items-center gap-3"><i data-lucide="${state.mode === 'package' ? 'package' : 'file-lock-2'}" class="text-gt-blue w-5 h-5 flex-shrink-0"></i><span class="truncate max-w-[250px]" title="${pathKey}">${displayPath}</span></td>`;
+                let displayPath = pathKey;
+                if (dataArr.length > 1) {
+                    displayPath += ` <span class="text-xs bg-slate-200 px-1.5 py-0.5 rounded-md text-slate-500 font-bold ml-2 border border-slate-300">Reg ${index + 1}</span>`;
+                }
+                
+                if (state.mode === 'package' && displayPath.endsWith('.dig')) displayPath = displayPath.replace(/\.dig$/i, '<span class="text-xs ml-1 bg-gt-sky text-gt-dark px-1 rounded font-bold">.dig</span>');
 
-            state.schema.forEach(field => {
-                rowHtml += `<td class="p-4 text-slate-700 max-w-[200px] truncate text-sm font-medium">${data[field.id] || '<span class="text-slate-300 italic">-</span>'}</td>`;
+                let rowHtml = `<td class="p-4 font-bold text-slate-700 flex items-center gap-3"><i data-lucide="${state.mode === 'package' ? 'package' : 'file-lock-2'}" class="text-gt-blue w-5 h-5 flex-shrink-0"></i><span class="truncate max-w-[250px]" title="${pathKey}">${displayPath}</span></td>`;
+
+                state.schema.forEach(field => {
+                    rowHtml += `<td class="p-4 text-slate-700 max-w-[200px] truncate text-sm font-medium">${data[field.id] || '<span class="text-slate-300 italic">-</span>'}</td>`;
+                });
+
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
             });
-
-            tr.innerHTML = rowHtml;
-            tbody.appendChild(tr);
         });
         lucide.createIcons();
+    },
+
+    toggleGroupField() {
+        const mode = document.getElementById('select-index-mode').value;
+        if (mode === 'field') {
+            document.getElementById('container-group-field').classList.remove('hidden');
+        } else {
+            document.getElementById('container-group-field').classList.add('hidden');
+        }
+    },
+
+    openSecurityModal() {
+        if (!state.isAdmin) return;
+        document.getElementById('input-consult-pwd').value = (state.collectionPasswords && state.collectionPasswords.consult) ? state.collectionPasswords.consult : '';
+        document.getElementById('input-admin-pwd').value = (state.collectionPasswords && state.collectionPasswords.admin) ? state.collectionPasswords.admin : '';
+        
+        if (state.collectionConfig) {
+            document.getElementById('select-index-mode').value = state.collectionConfig.mode || 'standard';
+            document.getElementById('input-group-field').value = state.collectionConfig.groupField || '';
+        } else {
+            document.getElementById('select-index-mode').value = 'standard';
+            document.getElementById('input-group-field').value = '';
+        }
+        app.toggleGroupField();
+
+        document.getElementById('modal-security-config').classList.remove('hidden');
+    },
+
+    saveSecurityFromModal() {
+        const consultPwd = document.getElementById('input-consult-pwd').value;
+        const adminPwd = document.getElementById('input-admin-pwd').value;
+        const indexMode = document.getElementById('select-index-mode').value;
+        const groupField = document.getElementById('input-group-field').value;
+        
+        app.saveSecurityConfig(consultPwd, adminPwd, indexMode, groupField);
+        document.getElementById('modal-security-config').classList.add('hidden');
     }
 });

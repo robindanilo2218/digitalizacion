@@ -4,7 +4,46 @@ Object.assign(window.app, {
     // 1. MODO CARPETA LOCAL (Solo Admin)
     async selectRootFolder() {
         try {
-            const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+            let dirHandle;
+            try {
+                dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                state.canWriteLocal = true;
+            } catch (e) {
+                if (e.name !== "AbortError") {
+                    dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+                    state.canWriteLocal = false;
+                } else throw e;
+            }
+            state.rootDirHandle = dirHandle;
+            
+            try {
+                const securityHandle = await dirHandle.getFileHandle('temas_ui.dat');
+                const file = await securityHandle.getFile();
+                const text = await file.text();
+                const config = this._parseObfuscatedFile(text);
+                
+                if (config.consult_pwd) {
+                    const pwd = prompt("Colección Protegida\nIngrese la contraseña de consulta para acceder:");
+                    if (pwd !== config.consult_pwd) {
+                        alert("Contraseña incorrecta.");
+                        return; // Abort loading
+                    }
+                }
+                state.collectionPasswords = {
+                    consult: config.consult_pwd || '',
+                    admin: config.archivista_pwd || ''
+                };
+                state.collectionConfig = {
+                    mode: config.mode || 'standard',
+                    groupField: config.groupField || ''
+                };
+                db.put('__system_config__', [config]);
+            } catch (e) {
+                state.collectionPasswords = null;
+                state.collectionConfig = { mode: 'standard', groupField: '' };
+                db.put('__system_config__', [{}]);
+            }
+
             const groupedFolders = {};
             let totalFiles = 0;
 
@@ -23,6 +62,19 @@ Object.assign(window.app, {
                                 fullPath: `${folderName}/${entry.name}`
                             });
                             totalFiles++;
+                        } else if (entry.name.match(/\.(lib|dig)$/i)) {
+                            try {
+                                const file = await entry.getFile();
+                                const text = await file.text();
+                                const parsed = JSON.parse(text);
+                                for (let key in parsed.records) {
+                                    state.records[key] = parsed.records[key];
+                                }
+                                await db.putBulk(parsed.records);
+                                if (parsed.schema && parsed.schema.length > state.schema.length) {
+                                    state.schema = parsed.schema;
+                                }
+                            } catch (e) { console.error("Error leyendo archivo de metadatos", entry.name, e); }
                         }
                     } else if (entry.kind === 'directory') {
                         await scanDirectory(entry, `${currentPath ? currentPath + '/' : dirHandle.name + '/'}${entry.name}`);
@@ -69,21 +121,27 @@ Object.assign(window.app, {
 
         try {
             const extractZip = async (zipContent, prefixPath = "") => {
-                const dbFile = zipContent.file("metadata.dig") || zipContent.file("ofuscado.lib") || zipContent.file("database.json");
-                if (dbFile) {
-                    const text = await dbFile.async("string");
-                    try {
-                        const parsed = JSON.parse(text);
-                        for (let key in parsed.records) {
-                            state.records[prefixPath + key] = parsed.records[key];
-                        }
-                        // Sincronizar extracciones al IndexedDB
-                        await db.putBulk(state.records);
+                const libFiles = zipContent.file(/\.(dig|lib|json)$/i);
+                if (libFiles && libFiles.length > 0) {
+                    for (const dbFile of libFiles) {
+                        const text = await dbFile.async("string");
+                        try {
+                            const parsed = JSON.parse(text);
+                            for (let key in parsed.records) {
+                                let finalKey = key;
+                                if (!key.includes(prefixPath) && prefixPath !== "") {
+                                    finalKey = prefixPath + key;
+                                }
+                                state.records[finalKey] = parsed.records[key];
+                            }
+                            // Sincronizar extracciones al IndexedDB
+                            await db.putBulk(state.records);
 
-                        if (parsed.schema && parsed.schema.length > state.schema.length) {
-                            state.schema = parsed.schema;
-                        }
-                    } catch (e) { }
+                            if (parsed.schema && parsed.schema.length > state.schema.length) {
+                                state.schema = parsed.schema;
+                            }
+                        } catch (e) { }
+                    }
                 }
 
                 const entries = Object.keys(zipContent.files);
@@ -91,7 +149,7 @@ Object.assign(window.app, {
                     const entry = zipContent.files[path];
                     if (entry.dir) continue;
 
-                    if (path.match(/\.(zip|xlb|digpkg|cll)$/i)) {
+                    if (path.match(/\.(zip|xlb|digpkg|cll|jor)$/i)) {
                         const nestedBlob = await entry.async("blob");
                         const nestedZip = await JSZip.loadAsync(nestedBlob);
                         await extractZip(nestedZip, prefixPath + path + "/");
@@ -133,6 +191,36 @@ Object.assign(window.app, {
                 } else {
                     // Leer como Zip
                     const mainZip = await JSZip.loadAsync(files[i]);
+                    
+                    const securityFile = mainZip.file("temas_ui.dat");
+                    if (securityFile) {
+                        const text = await securityFile.async("string");
+                        try {
+                            const config = this._parseObfuscatedFile(text);
+                            if (config.consult_pwd) {
+                                const pwd = prompt(`El paquete ${files[i].name} está protegido.\nIngrese la contraseña de consulta:`);
+                                if (pwd !== config.consult_pwd) {
+                                    alert("Contraseña incorrecta.");
+                                    this.hideLoader();
+                                    return;
+                                }
+                            }
+                            state.collectionPasswords = {
+                                consult: config.consult_pwd || '',
+                                admin: config.archivista_pwd || ''
+                            };
+                            state.collectionConfig = {
+                                mode: config.mode || 'standard',
+                                groupField: config.groupField || ''
+                            };
+                            await db.put('__system_config__', [config]);
+                        } catch (e) { console.error(e); }
+                    } else if (!state.collectionPasswords) {
+                        state.collectionPasswords = null;
+                        state.collectionConfig = { mode: 'standard', groupField: '' };
+                        await db.put('__system_config__', [{}]);
+                    }
+
                     await extractZip(mainZip, files[i].name + "/");
                 }
             }
@@ -283,6 +371,140 @@ Object.assign(window.app, {
             alert("Hubo un error al generar la colección.");
         } finally {
             this.hideLoader();
+        }
+    },
+
+    async saveLocalMetadata(fullPath) {
+        if (!state.canWriteLocal || !state.rootDirHandle) return;
+        try {
+            const parts = fullPath.split('/');
+            parts.pop(); // Remove image name
+            parts.shift(); // Remove root handle name
+            
+            let currentHandle = state.rootDirHandle;
+            for (const part of parts) {
+                currentHandle = await currentHandle.getDirectoryHandle(part, { create: false });
+            }
+            
+            const fileHandle = await currentHandle.getFileHandle('metadatos.lib', { create: true });
+            const writable = await fileHandle.createWritable();
+            
+            const folderPrefix = fullPath.substring(0, fullPath.lastIndexOf('/')) + '/';
+            const folderRecords = {};
+            for (let pathKey in state.records) {
+                if (pathKey.startsWith(folderPrefix)) {
+                    folderRecords[pathKey] = state.records[pathKey];
+                }
+            }
+            
+            const payload = {
+                version: "8.0-Local",
+                timestamp: new Date().toISOString(),
+                schema: state.schema,
+                records: folderRecords
+            };
+            
+            await writable.write(JSON.stringify(payload, null, 2));
+            await writable.close();
+        } catch (e) {
+            console.error("Error guardando metadatos.lib local:", e);
+        }
+    },
+
+    async saveSecurityConfig(consultPwd, adminPwd, indexMode = 'standard', groupField = '') {
+        const text = this._generateObfuscatedFile(consultPwd, adminPwd, indexMode, groupField);
+        
+        state.collectionPasswords = { consult: consultPwd, admin: adminPwd };
+        state.collectionConfig = { mode: indexMode, groupField: groupField };
+        
+        const configToSave = { consult_pwd: consultPwd, archivista_pwd: adminPwd, mode: indexMode, groupField: groupField };
+        await db.put('__system_config__', [configToSave]);
+
+        if (state.mode === 'local' && state.canWriteLocal && state.rootDirHandle) {
+            try {
+                const fileHandle = await state.rootDirHandle.getFileHandle('temas_ui.dat', { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(text);
+                await writable.close();
+                alert("Configuración guardada exitosamente en la carpeta.");
+            } catch (e) {
+                alert("Error guardando temas_ui.dat: " + e.message);
+            }
+        } else {
+            // Package mode or no write permissions
+            const blob = new Blob([text], { type: "text/plain" });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `temas_ui.dat`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            alert("Se descargó 'temas_ui.dat'. Deberá incluir este archivo en la raíz de su paquete manualmente para aplicar los cambios.");
+        }
+    },
+
+    _generateObfuscatedFile(consultPwd, adminPwd, indexMode, groupField) {
+        const lines = [];
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+        for (let i = 0; i < 50; i++) {
+            let line = '';
+            for (let j = 0; j < 120; j++) {
+                line += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            lines.push(line);
+        }
+        
+        const cLen = consultPwd.length.toString(16).padStart(2, '0');
+        const cPayload = cLen + consultPwd;
+        lines[17] = lines[17].substring(0, 25) + cPayload + lines[17].substring(25 + cPayload.length);
+        
+        const aLen = adminPwd.length.toString(16).padStart(2, '0');
+        const aPayload = aLen + adminPwd;
+        lines[32] = lines[32].substring(0, 45) + aPayload + lines[32].substring(45 + aPayload.length);
+        
+        const configPayload = JSON.stringify({ mode: indexMode, groupField: groupField });
+        const configB64 = btoa(unescape(encodeURIComponent(configPayload)));
+        const configLen = configB64.length.toString(16).padStart(4, '0');
+        const cData = configLen + configB64;
+        lines[44] = lines[44].substring(0, 10) + cData + lines[44].substring(10 + cData.length);
+        
+        return lines.join('\n');
+    },
+
+    _parseObfuscatedFile(text) {
+        try {
+            const lines = text.split('\n');
+            if (lines.length < 40) return {}; // Formato inválido
+            
+            const cLine = lines[17];
+            const cLenHex = cLine.substring(25, 27);
+            const cLen = parseInt(cLenHex, 16);
+            const consult_pwd = isNaN(cLen) ? '' : cLine.substring(27, 27 + cLen);
+            
+            const aLine = lines[32];
+            const aLenHex = aLine.substring(45, 47);
+            const aLen = parseInt(aLenHex, 16);
+            const admin_pwd = isNaN(aLen) ? '' : aLine.substring(47, 47 + aLen);
+            
+            let mode = 'standard';
+            let groupField = '';
+            if (lines.length > 44) {
+                const confLine = lines[44];
+                const confLenHex = confLine.substring(10, 14);
+                const confLen = parseInt(confLenHex, 16);
+                if (!isNaN(confLen) && confLen > 0) {
+                    const confB64 = confLine.substring(14, 14 + confLen);
+                    try {
+                        const parsed = JSON.parse(decodeURIComponent(escape(atob(confB64))));
+                        mode = parsed.mode || 'standard';
+                        groupField = parsed.groupField || '';
+                    } catch (e) {}
+                }
+            }
+            
+            return { consult_pwd, archivista_pwd: admin_pwd, mode, groupField };
+        } catch (e) {
+            return {};
         }
     },
 
