@@ -92,15 +92,15 @@
                 </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-4 mt-6 justify-center">
-                <!-- Botón solo para Admin -->
+                <!-- Botón para Cargar Carpeta Local (Consultor / Archivista) -->
                 <button id="btn-scan-local" onclick="app.selectRootFolder()"
-                    class="hidden items-center justify-center gap-3 px-8 py-4 bg-gt-dark text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg font-semibold text-lg border border-slate-700">
-                    <i data-lucide="camera"></i> Nueva Digitalización (Local)
+                    class="flex items-center justify-center gap-3 px-8 py-4 bg-gt-dark text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg font-semibold text-lg border border-slate-700">
+                    <i data-lucide="folder-search"></i> Explorar Carpeta Local
                 </button>
-                <!-- Botón de Paquetes (Admin Only) -->
+                <!-- Botón de Paquetes -->
                 <button id="btn-open-packages" onclick="document.getElementById('open-package-input').click()"
-                    class="hidden items-center justify-center gap-3 px-8 py-4 bg-gt-blue text-white rounded-xl hover:bg-opacity-90 transition-all shadow-lg font-semibold text-lg border border-gt-sky">
-                    <i data-lucide="package-open"></i> Abrir Paquetes
+                    class="flex items-center justify-center gap-3 px-8 py-4 bg-gt-blue text-white rounded-xl hover:bg-opacity-90 transition-all shadow-lg font-semibold text-lg border border-gt-sky">
+                    <i data-lucide="package-open"></i> Abrir Paquetes / Catálogos
                 </button>
                 <input type="file" id="open-package-input" accept=".cll,.xlb,.jor,.dig,.lib,.zip" class="hidden"
                     onchange="app.openPackage(event)" multiple>

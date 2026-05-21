@@ -175,7 +175,7 @@ Object.assign(window.app, {
             };
 
             for (let i = 0; i < files.length; i++) {
-                if (files[i].name.match(/\.dig$/i)) {
+                if (files[i].name.match(/\.(dig|lib)$/i)) {
                     // Leer JSON suelto directamente
                     const text = await files[i].text();
                     try {
@@ -227,10 +227,16 @@ Object.assign(window.app, {
                 }
             }
 
-            // Si solo se subieron archivos .dig, mostrar alerta y no recargar UI de imágenes
+            // Si solo se subieron archivos de metadatos (.dig o .lib), mostrar alerta y mover al dashboard
             if (Object.keys(state.folders).length === 0) {
-                alert("Metadatos cargados y actualizados en la base de datos.");
+                alert("Metadatos de catálogo cargados. Base de datos actualizada exitosamente.");
                 this.hideLoader();
+                
+                if (Object.keys(state.records).length > 0) {
+                    document.getElementById('welcome-screen').classList.add('hidden');
+                    document.getElementById('btn-nav-dashboard').classList.remove('hidden');
+                    app.switchView('dashboard');
+                }
                 return;
             }
 
