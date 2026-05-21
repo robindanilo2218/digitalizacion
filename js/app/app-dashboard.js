@@ -13,20 +13,26 @@ Object.assign(window.app, {
             if (!Array.isArray(dataArr)) dataArr = [dataArr];
 
             let collectionName = "Catálogo General";
-            
-            // Intento deducir Colección desde el archivo si existe un campo para ello
-            if (dataArr.length > 0 && dataArr[0]['tipo_coleccion']) {
+            if (dataArr.length > 0 && dataArr[0]['tipo_doc']) {
+                collectionName = dataArr[0]['tipo_doc'];
+            } else if (dataArr.length > 0 && dataArr[0]['tipo_coleccion']) {
                 collectionName = dataArr[0]['tipo_coleccion'];
+            } else {
+                let parts = pathKey.split('/');
+                if (parts.length >= 3) collectionName = parts[0].replace('.xlb', '');
             }
 
             let bookName = 'Libro Desconocido';
-            const xlbMatch = pathKey.match(/([^\/]+)\.xlb\//i);
-            if (xlbMatch) {
-                bookName = xlbMatch[1];
+            if (dataArr.length > 0 && dataArr[0]['nombre_libro']) {
+                bookName = dataArr[0]['nombre_libro'];
             } else {
-                let parts = pathKey.split('/');
-                if (parts.length >= 2) {
-                    bookName = parts[parts.length - 2];
+                const xlbMatch = pathKey.match(/([^\/]+)\.xlb\//i);
+                if (xlbMatch) {
+                    bookName = xlbMatch[1];
+                } else {
+                    let parts = pathKey.split('/');
+                    if (parts.length >= 3) bookName = parts[parts.length - 3];
+                    else if (parts.length >= 2) bookName = parts[parts.length - 2];
                 }
             }
 

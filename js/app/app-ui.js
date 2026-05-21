@@ -28,6 +28,7 @@ Object.assign(window.app, {
         document.getElementById('dashboard-view').classList.add('hidden');
         document.getElementById('workspace-view').classList.add('hidden');
         document.getElementById('search-view').classList.add('hidden');
+        document.getElementById('welcome-screen').classList.add('hidden');
 
         if (viewName === 'dashboard') {
             document.getElementById('dashboard-view').classList.remove('hidden');

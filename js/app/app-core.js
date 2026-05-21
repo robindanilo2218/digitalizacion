@@ -94,6 +94,11 @@ Object.assign(window.app, {
             document.getElementById('admin-tools').classList.remove('hidden');
             document.getElementById('btn-add-field').classList.remove('hidden');
             document.getElementById('btn-add-field').classList.add('flex');
+            
+            document.getElementById('dashboard-view').classList.add('hidden');
+            document.getElementById('workspace-view').classList.add('hidden');
+            document.getElementById('search-view').classList.add('hidden');
+            document.getElementById('welcome-screen').classList.remove('hidden');
 
             alert("Credenciales aceptadas. Herramientas de digitalización y escritura en BD desbloqueadas.");
             if (state.view === 'workspace') app.renderForm();
