@@ -61,11 +61,63 @@ Object.assign(window.app, {
 
             state.zoom = 1; state.rotation = 0;
             this.updateViewerTransform();
+
+            // Auto-sugerir datos del lote en campos vacíos
+            if (state.isAdmin && (!state.collectionConfig || state.collectionConfig.mode !== 'folder')) {
+                this._autoSuggestBatchData(currentItem.fullPath);
+            }
+
             this.renderForm();
         } catch (e) {
             document.getElementById('img-loader-text').innerText = 'Error de lectura cifrada.';
             console.error(e);
         }
+    },
+
+    _autoSuggestBatchData(fullPath) {
+        // Si el registro ya tiene algún dato real, no sugerir nada (no sobrescribir)
+        const existing = state.records[fullPath] && state.records[fullPath][0];
+        const hasRealData = existing && Object.keys(existing).some(k => !k.startsWith('_') && existing[k]);
+        if (hasRealData) return;
+
+        // Extraer nombre del libro de la ruta:
+        // Estructura esperada: Raíz/Colección/Libro/Trabajo/imagen.jpg
+        const parts = fullPath.split('/');
+        const suggestedLibro = parts.length >= 4 ? parts[parts.length - 3]
+                             : parts.length >= 3 ? parts[parts.length - 2]
+                             : '';
+
+        // Buscar valores de referencia en otras imágenes de la misma carpeta
+        const folderPrefix = fullPath.substring(0, fullPath.lastIndexOf('/') + 1);
+        let refUbicacion = '';
+
+        for (const [key, val] of Object.entries(state.records)) {
+            if (!key.startsWith(folderPrefix) || key === fullPath) continue;
+            const rec0 = Array.isArray(val) ? val[0] : val;
+            if (!rec0) continue;
+            if (rec0.ubicacion_fisica && !refUbicacion) refUbicacion = rec0.ubicacion_fisica;
+            if (refUbicacion) break; // Ya encontramos lo que necesitamos
+        }
+
+        // Si no hay nada útil que sugerir, no hacer nada
+        if (!suggestedLibro && !refUbicacion) return;
+
+        // Generar código de rastreo serial
+        const folderName = parts[parts.length - 2] || '';
+        const imgIndex = state.images.findIndex(img => img.fullPath === fullPath) + 1;
+        const serial = `${folderName}-${String(imgIndex).padStart(4, '0')}`;
+
+        if (!state.records[fullPath]) state.records[fullPath] = [{}];
+        if (!Array.isArray(state.records[fullPath])) state.records[fullPath] = [state.records[fullPath]];
+
+        const rec = state.records[fullPath][0];
+        if (suggestedLibro  && !rec.nombre_libro)    rec.nombre_libro    = suggestedLibro;
+        if (refUbicacion    && !rec.ubicacion_fisica) rec.ubicacion_fisica = refUbicacion;
+        if (!rec.codigo_rastreo)                      rec.codigo_rastreo  = serial;
+
+        db.put(fullPath, state.records[fullPath]);
+        // No llamamos saveLocalMetadata aquí para no generar escrituras en disco en cada navegación;
+        // se guarda al primer cambio real del usuario.
     },
 
     setZoom(delta) {
