@@ -24,6 +24,19 @@ const db = {
             tx.oncomplete = resolve;
         });
     },
+    async get(pathKey) {
+        return new Promise((resolve) => {
+            if (!this.instance) return resolve(null);
+            try {
+                const tx = this.instance.transaction('records', 'readonly');
+                const request = tx.objectStore('records').get(pathKey);
+                request.onsuccess = (e) => resolve(e.target.result ? e.target.result : null);
+                request.onerror = () => resolve(null);
+            } catch(err) {
+                resolve(null);
+            }
+        });
+    },
     async putBulk(recordsObj) {
         return new Promise((resolve) => {
             const tx = this.instance.transaction('records', 'readwrite');
