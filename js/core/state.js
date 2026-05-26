@@ -1,6 +1,7 @@
 const state = {
     isAdmin: false,
     mode: 'local',
+    expandedNodes: {},      // tracking tree node expansion states
 
     folders: {},
     activeFolder: '',

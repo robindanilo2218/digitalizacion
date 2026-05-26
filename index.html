@@ -39,14 +39,12 @@
         <div class="flex items-center gap-3">
             <!-- BOTÓN SECRETO ADMIN: Triple tap aquí, con touch-action bloqueado para evitar zoom -->
             <div onclick="app.handleAdminTap()"
-                class="bg-gt-sky p-2.5 rounded-xl shadow-lg border border-gt-blue cursor-pointer transition-transform hover:scale-105 active:scale-95"
-                title="Toca 3 veces rápidas para acceso administrativo">
+                class="bg-gt-sky p-2.5 rounded-xl shadow-lg border border-gt-blue cursor-pointer transition-transform hover:scale-105 active:scale-95">
                 <i data-lucide="landmark" class="text-gt-dark pointer-events-none"></i>
             </div>
             <div>
                 <h1 class="text-2xl font-bold text-white hidden sm:block tracking-tight">Archivo Histórico</h1>
-                <p class="text-xs text-gt-sky font-semibold tracking-widest uppercase" id="lbl-role-status">Modo
-                    Consulta</p>
+                <p class="text-[10px] text-slate-400 font-semibold tracking-wider">Sistema de Consulta y Preservación</p>
             </div>
         </div>
 
@@ -99,12 +97,21 @@
                 </button>
                 <!-- Botón de Paquetes -->
                 <button id="btn-open-packages" onclick="document.getElementById('open-package-input').click()"
-                    class="flex items-center justify-center gap-3 px-8 py-4 bg-gt-blue text-white rounded-xl hover:bg-opacity-90 transition-all shadow-lg font-semibold text-lg border border-gt-sky">
+                    class="hidden items-center justify-center gap-3 px-8 py-4 bg-gt-blue text-white rounded-xl hover:bg-opacity-90 transition-all shadow-lg font-semibold text-lg border border-gt-sky">
                     <i data-lucide="package-open"></i> Abrir Paquetes / Catálogos
                 </button>
                 <input type="file" id="open-package-input" accept=".cll,.xlb,.jor,.dig,.lib,.zip" class="hidden"
                     onchange="app.openPackage(event)" multiple>
             </div>
+            
+            <!-- Mensaje de Modo Consulta (Solo Consultor, visible si la base de datos está vacía) -->
+            <div id="consultant-empty-msg" class="hidden text-center max-w-md bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <i data-lucide="shield-alert" class="w-12 h-12 text-slate-400 mx-auto"></i>
+                <h3 class="font-bold text-slate-700 text-lg">Catálogo Vacío</h3>
+                <p class="text-slate-500 text-sm">Actualmente no hay datos cargados en el sistema de consulta local.</p>
+            </div>
+
+
 
             <!-- Botón para descargar script -->
             <div id="btn-download-script" class="hidden mt-2 flex-col items-center">
@@ -539,9 +546,9 @@
                 <div id="sd-no-img" class="text-center">
                     <i data-lucide="image-off" class="w-20 h-20 text-slate-700 mx-auto mb-4"></i>
                     <p class="text-slate-500 font-bold text-lg mb-4">Imagen no cargada en la memoria actual.</p>
-                    <p class="text-slate-600 text-sm max-w-md mx-auto mb-6 leading-relaxed">Por seguridad y rendimiento, la caché de imágenes se limpia al salir. Vuelve a abrir el paquete correspondiente para revincular las imágenes al catálogo.</p>
-                    <button onclick="document.getElementById('modal-search-detail').classList.add('hidden'); document.getElementById('open-package-input').click();"
-                        class="px-6 py-3 bg-gt-blue hover:bg-opacity-90 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 mx-auto">
+                    <p id="p-sd-no-img-hint" class="text-slate-600 text-sm max-w-md mx-auto mb-6 leading-relaxed">Por seguridad y rendimiento, la caché de imágenes se limpia al salir. Vuelve a abrir el paquete correspondiente para revincular las imágenes al catálogo.</p>
+                    <button id="btn-sd-open-packages" onclick="document.getElementById('modal-search-detail').classList.add('hidden'); document.getElementById('open-package-input').click();"
+                        class="hidden items-center justify-center gap-2 px-6 py-3 bg-gt-blue hover:bg-opacity-90 text-white rounded-xl font-bold shadow-lg transition-all mx-auto">
                         <i data-lucide="package-open" class="w-5 h-5"></i> Abrir Paquetes
                     </button>
                 </div>

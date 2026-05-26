@@ -76,7 +76,8 @@ Object.assign(window.app, {
 
     _autoSuggestBatchData(fullPath) {
         // Si el registro ya tiene algún dato real, no sugerir nada (no sobrescribir)
-        const existing = state.records[fullPath] && state.records[fullPath][0];
+        const existingRecord = app.getRecord(fullPath);
+        const existing = existingRecord && existingRecord[0];
         const hasRealData = existing && Object.keys(existing).some(k => !k.startsWith('_') && existing[k]);
         if (hasRealData) return;
 
@@ -152,7 +153,7 @@ Object.assign(window.app, {
                 <style>
                     @page { size: auto; margin: 0; }
                     body { margin: 0; padding: 0; background: white; text-align: center; }
-                    img { max-width: 100vw; max-height: 100vh; page-break-after: always; display: block; margin: 0 auto; object-fit: contain; }
+                    img { max-width: 100vw; max-height: 100vh; page-break-after: always; display: block; margin: 0 auto; object-fit: contain; filter: contrast(1.15) grayscale(1) brightness(1.05); }
                 </style>
                 </head><body>`;
 

@@ -42,3 +42,11 @@
     -webkit-user-select: none;
     touch-action: manipulation;
 }
+
+/* Estilo para los labels de los radios seleccionados en configuración */
+label:has(input[type="radio"]:checked) {
+    background-color: #f0f9ff !important;
+    border-color: #0284c7 !important;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+

@@ -6,8 +6,13 @@ Object.assign(window.app, {
         try {
             let dirHandle;
             try {
-                dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-                state.canWriteLocal = true;
+                if (state.isAdmin) {
+                    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                    state.canWriteLocal = true;
+                } else {
+                    dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+                    state.canWriteLocal = false;
+                }
             } catch (e) {
                 if (e.name !== "AbortError") {
                     dirHandle = await window.showDirectoryPicker({ mode: 'read' });
@@ -67,10 +72,17 @@ Object.assign(window.app, {
                                 const file = await entry.getFile();
                                 const text = await file.text();
                                 const parsed = JSON.parse(text);
+                                const folderPath = currentPath ? `${dirHandle.name}/${currentPath}` : dirHandle.name;
+                                const mappedRecords = {};
                                 for (let key in parsed.records) {
-                                    state.records[key] = parsed.records[key];
+                                    let finalKey = key;
+                                    if (!key.startsWith(dirHandle.name + '/') && !key.includes('/')) {
+                                        finalKey = `${folderPath}/${key}`;
+                                    }
+                                    state.records[finalKey] = parsed.records[key];
+                                    mappedRecords[finalKey] = parsed.records[key];
                                 }
-                                await db.putBulk(parsed.records);
+                                await db.putBulk(mappedRecords);
                                 if (parsed.schema && parsed.schema.length > state.schema.length) {
                                     state.schema = parsed.schema;
                                 }
@@ -402,8 +414,52 @@ Object.assign(window.app, {
         }
     },
 
+    _saveQueue: {},
+    _saveInProgress: {},
+
     async saveLocalMetadata(fullPath) {
-        if (!state.canWriteLocal || !state.rootDirHandle) return;
+        if (!state.isAdmin || !state.canWriteLocal || !state.rootDirHandle) return;
+
+        // Resolver la ruta de la carpeta contenedora para agrupar las operaciones por directorio
+        const parts = fullPath.split('/');
+        const isFilePath = /\.(jpg|jpeg|png|webp|pag)$/i.test(parts[parts.length - 1]);
+        if (isFilePath) {
+            parts.pop();
+        }
+        const folderPathKey = parts.join('/');
+
+        // Inicializar colas y estados de progreso si no existen
+        if (!this._saveQueue) this._saveQueue = {};
+        if (!this._saveInProgress) this._saveInProgress = {};
+
+        // Limpiar cualquier temporizador debounce pendiente para esta carpeta
+        if (this._saveQueue[folderPathKey]) {
+            clearTimeout(this._saveQueue[folderPathKey]);
+        }
+
+        // Programar el guardado con un debounce de 400ms
+        this._saveQueue[folderPathKey] = setTimeout(async () => {
+            delete this._saveQueue[folderPathKey];
+
+            // Si ya hay una operación de guardado físico en curso para esta carpeta, posponer esta llamada
+            if (this._saveInProgress[folderPathKey]) {
+                console.log(`[saveLocalMetadata] Operación en curso para ${folderPathKey}, posponiendo...`);
+                this.saveLocalMetadata(fullPath);
+                return;
+            }
+
+            this._saveInProgress[folderPathKey] = true;
+            try {
+                await this._executeSaveLocalMetadata(fullPath);
+            } catch (err) {
+                console.error(`Error ejecutando guardado para ${folderPathKey}:`, err);
+            } finally {
+                delete this._saveInProgress[folderPathKey];
+            }
+        }, 400);
+    },
+
+    async _executeSaveLocalMetadata(fullPath) {
         try {
             const parts = fullPath.split('/');
 

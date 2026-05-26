@@ -118,8 +118,10 @@ Object.assign(window.app, {
                     record['codigo_rastreo'] = serialCode;
                 }
             });
-            app.saveLocalMetadata(fullPath);
         });
+
+        // Guardar metadatos locales una sola vez para toda la carpeta activa
+        app.saveLocalMetadata(state.activeFolder);
 
         // Sincronizar actualización masiva con IndexedDB
         db.putBulk(state.records);
@@ -224,13 +226,15 @@ Object.assign(window.app, {
             fullPath = state.activeFolder;
         }
         
-        if (fullPath) {
-            if (state.records[fullPath] && !Array.isArray(state.records[fullPath])) {
-                state.records[fullPath] = [state.records[fullPath]];
+        let resolvedRecord = fullPath ? app.getRecord(fullPath) : null;
+        if (fullPath && resolvedRecord) {
+            if (!Array.isArray(resolvedRecord)) {
+                resolvedRecord = [resolvedRecord];
+                state.records[fullPath] = resolvedRecord;
             }
         }
         
-        const recordsArray = fullPath && state.records[fullPath] ? state.records[fullPath] : [{}];
+        const recordsArray = fullPath && resolvedRecord ? resolvedRecord : [{}];
         
         if (state.subRecordIndex >= recordsArray.length) {
             state.subRecordIndex = 0;
@@ -254,57 +258,74 @@ Object.assign(window.app, {
                     container.appendChild(actaBtn);
                 }
             } else {
-                // Modo acta activo: panel completo
-                const rec0      = (state.records[fullPath] && state.records[fullPath][0]) ? state.records[fullPath][0] : {};
+                // Modo acta activo: panel completo (Solo Admin) o Badge Estático (Consultor)
+                const rec0      = (resolvedRecord && resolvedRecord[0]) ? resolvedRecord[0] : {};
                 const numActa   = rec0._num_acta   || state.currentActaNum || '';
                 const numPagina = rec0._num_pagina || '';
                 const isIncluded = !!rec0._num_acta;
-                let actaImgCount = 0;
-                if (numActa) state.images.forEach(img => { const r = state.records[img.fullPath]; if (r && r[0] && r[0]._num_acta === numActa) actaImgCount++; });
 
-                const actaWidget = document.createElement('div');
-                actaWidget.className = 'bg-indigo-50 border border-indigo-300 rounded-xl p-3 mb-3';
-                actaWidget.innerHTML = `
-                    <div class="flex items-center justify-between mb-2.5">
-                        <div class="flex items-center gap-1.5">
-                            <i data-lucide="files" class="w-3.5 h-3.5 text-indigo-600"></i>
-                            <span class="text-xs font-extrabold uppercase tracking-wide text-indigo-700">Modo Acta Activo</span>
-                            <span id="lbl-acta-img-count" class="${actaImgCount > 1 ? 'text-xs font-bold bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-md' : 'hidden'}">
-                                ${actaImgCount > 1 ? '📄 ' + actaImgCount + ' imágenes' : ''}
-                            </span>
+                if (state.isAdmin) {
+                    let actaImgCount = 0;
+                    if (numActa) state.images.forEach(img => { const r = app.getRecord(img.fullPath); if (r && r[0] && r[0]._num_acta === numActa) actaImgCount++; });
+
+                    const actaWidget = document.createElement('div');
+                    actaWidget.className = 'bg-indigo-50 border border-indigo-300 rounded-xl p-3 mb-3';
+                    actaWidget.innerHTML = `
+                        <div class="flex items-center justify-between mb-2.5">
+                            <div class="flex items-center gap-1.5">
+                                <i data-lucide="files" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                <span class="text-xs font-extrabold uppercase tracking-wide text-indigo-700">Modo Acta Activo</span>
+                                <span id="lbl-acta-img-count" class="${actaImgCount > 1 ? 'text-xs font-bold bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-md' : 'hidden'}">
+                                    ${actaImgCount > 1 ? '📄 ' + actaImgCount + ' imágenes' : ''}
+                                </span>
+                            </div>
+                            <button onclick="app.toggleActaMode()" class="text-xs text-indigo-400 hover:text-indigo-700 font-bold flex items-center gap-1">
+                                <i data-lucide="x" class="w-3 h-3"></i> Salir
+                            </button>
                         </div>
-                        <button onclick="app.toggleActaMode()" class="text-xs text-indigo-400 hover:text-indigo-700 font-bold flex items-center gap-1">
-                            <i data-lucide="x" class="w-3 h-3"></i> Salir
-                        </button>
-                    </div>
-                    <div class="mb-2">
-                        <label class="text-[10px] font-bold text-indigo-500 uppercase tracking-wide block mb-1">N° Acta</label>
-                        <input id="input-num-acta" type="text" placeholder="Ej: 1, 47, M-001…" value="${numActa}"
-                            class="w-full p-2 text-sm bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none font-bold text-slate-800"
-                            oninput="app.setCurrentActaNum(this.value)" />
-                    </div>
-                    <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-indigo-100 transition-colors ${isIncluded ? 'mb-2' : ''} bg-white/60 border border-indigo-100">
-                        <input type="checkbox" id="chk-imagen-en-acta" ${isIncluded ? 'checked' : ''}
-                            onchange="app.includeImageInActa(this.checked)"
-                            class="w-4 h-4 rounded accent-indigo-600 cursor-pointer" />
-                        <span class="text-sm font-semibold text-slate-700">Esta imagen es página de este acta</span>
-                        ${isIncluded && numPagina ? `<span class="ml-auto text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">Pág. ${numPagina}</span>` : ''}
-                    </label>
-                    ${isIncluded ? `
-                    <div class="flex gap-2 mt-2">
-                        <div class="flex items-center gap-2 flex-1">
-                            <label class="text-[10px] font-bold text-indigo-500 uppercase tracking-wide whitespace-nowrap">Pág. #</label>
-                            <input id="input-num-pagina" type="text" placeholder="1, 2…" value="${numPagina}"
+                        <div class="mb-2">
+                            <label class="text-[10px] font-bold text-indigo-500 uppercase tracking-wide block mb-1">N° Acta</label>
+                            <input id="input-num-acta" type="text" placeholder="Ej: 1, 47, M-001…" value="${numActa}"
                                 class="w-full p-2 text-sm bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none font-bold text-slate-800"
-                                oninput="app.setNumPagina(this.value)" />
+                                oninput="app.setCurrentActaNum(this.value)" />
                         </div>
-                        <button onclick="app.nextActaPage()" title="Asignar siguiente página del mismo acta a la imagen siguiente y avanzar"
-                            class="px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1.5 shadow-sm whitespace-nowrap">
-                            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Siguiente pág.
-                        </button>
-                    </div>` : ''}
-                `;
-                container.appendChild(actaWidget);
+                        <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-indigo-100 transition-colors ${isIncluded ? 'mb-2' : ''} bg-white/60 border border-indigo-100">
+                            <input type="checkbox" id="chk-imagen-en-acta" ${isIncluded ? 'checked' : ''}
+                                onchange="app.includeImageInActa(this.checked)"
+                                class="w-4 h-4 rounded accent-indigo-600 cursor-pointer" />
+                            <span class="text-sm font-semibold text-slate-700">Esta imagen es página de este acta</span>
+                            ${isIncluded && numPagina ? `<span class="ml-auto text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">Pág. ${numPagina}</span>` : ''}
+                        </label>
+                        ${isIncluded ? `
+                        <div class="flex gap-2 mt-2">
+                            <div class="flex items-center gap-2 flex-1">
+                                <label class="text-[10px] font-bold text-indigo-500 uppercase tracking-wide whitespace-nowrap">Pág. #</label>
+                                <input id="input-num-pagina" type="text" placeholder="1, 2…" value="${numPagina}"
+                                    class="w-full p-2 text-sm bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none font-bold text-slate-800"
+                                    oninput="app.setNumPagina(this.value)" />
+                            </div>
+                            <button onclick="app.nextActaPage()" title="Asignar siguiente página del mismo acta a la imagen siguiente y avanzar"
+                                class="px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1.5 shadow-sm whitespace-nowrap">
+                                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Siguiente pág.
+                            </button>
+                        </div>` : ''}
+                    `;
+                    container.appendChild(actaWidget);
+                } else if (isIncluded && numActa) {
+                    // Consultor: Mostrar una elegante placa informativa estática
+                    const actaWidget = document.createElement('div');
+                    actaWidget.className = 'bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 mb-3 flex items-center gap-3.5';
+                    actaWidget.innerHTML = `
+                        <div class="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0">
+                            <i data-lucide="files" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">Acta Multipágina Registrada</p>
+                            <p class="text-sm font-semibold text-slate-700 mt-0.5">Acta N° <span class="font-black text-indigo-700">${numActa}</span> (Pág. ${numPagina || '1'})</p>
+                        </div>
+                    `;
+                    container.appendChild(actaWidget);
+                }
             }
         }
 
@@ -350,7 +371,7 @@ Object.assign(window.app, {
                     div.appendChild(textarea);
                 } else {
                     const p = document.createElement('p');
-                    p.className = "text-sm text-slate-700 font-medium whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner min-h-[120px]";
+                    p.className = "text-sm text-slate-800 font-semibold whitespace-pre-wrap bg-slate-50/50 p-4 rounded-xl border-l-4 border-l-gt-blue border-y border-r border-slate-200 shadow-xs";
                     p.innerText = recordData[field.id] || 'Sin datos registrados';
                     div.appendChild(p);
                 }
@@ -365,7 +386,7 @@ Object.assign(window.app, {
                     div.appendChild(input);
                 } else {
                     const p = document.createElement('p');
-                    p.className = "text-sm text-slate-700 font-medium bg-slate-50 p-3.5 rounded-xl border border-slate-200 shadow-inner";
+                    p.className = "text-sm text-slate-800 font-semibold bg-slate-50/50 p-3.5 rounded-xl border-l-4 border-l-gt-sky border-y border-r border-slate-200 shadow-xs";
                     p.innerText = recordData[field.id] || 'Sin datos registrados';
                     div.appendChild(p);
                 }
@@ -521,7 +542,9 @@ Object.assign(window.app, {
     closeSearchDetail() {
         document.getElementById('modal-search-detail').classList.add('hidden');
         if (state._searchDetailObjectUrl) {
-            URL.revokeObjectURL(state._searchDetailObjectUrl);
+            if (state._searchDetailObjectUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(state._searchDetailObjectUrl);
+            }
             state._searchDetailObjectUrl = null;
         }
         document.getElementById('sd-img').style.display = 'none';
@@ -625,13 +648,96 @@ Object.assign(window.app, {
         noImg.style.display = 'block';
 
         if (state._searchDetailObjectUrl) {
-            URL.revokeObjectURL(state._searchDetailObjectUrl);
+            if (state._searchDetailObjectUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(state._searchDetailObjectUrl);
+            }
             state._searchDetailObjectUrl = null;
         }
 
-        const item = state.images.find(img => img.fullPath === pathKey);
-        if (!item) return;
+        // 1. Intentar buscar la imagen de forma global en todas las carpetas en memoria (state.folders)
+        let item = null;
+        for (const folder in state.folders) {
+            item = state.folders[folder].find(img => img.fullPath === pathKey);
+            if (item) break;
+        }
 
+        // 2. Coincidencia con variantes de extensión en todas las carpetas cargadas
+        if (!item) {
+            const dotIdx = pathKey.lastIndexOf('.');
+            if (dotIdx !== -1) {
+                const base = pathKey.substring(0, dotIdx);
+                const exts = ['.jpg', '.jpeg', '.pag', '.png', '.webp', '.JPG', '.PAG'];
+                for (const folder in state.folders) {
+                    for (const ext of exts) {
+                        const alt = base + ext;
+                        item = state.folders[folder].find(img => img.fullPath === alt);
+                        if (item) break;
+                    }
+                    if (item) break;
+                }
+            }
+        }
+
+        // 3. Coincidencia solo por nombre de archivo (ignora carpetas)
+        if (!item) {
+            const parts = pathKey.split('/');
+            const filenameWithExt = parts.pop();
+            const dotIdx2 = filenameWithExt.lastIndexOf('.');
+            if (dotIdx2 !== -1) {
+                const filenameNoExt = filenameWithExt.substring(0, dotIdx2).toLowerCase();
+                for (const folder in state.folders) {
+                    item = state.folders[folder].find(img => {
+                        const kParts = img.fullPath.split('/');
+                        const kFile = kParts.pop();
+                        const kDot = kFile.lastIndexOf('.');
+                        if (kDot !== -1) {
+                            return kFile.substring(0, kDot).toLowerCase() === filenameNoExt;
+                        }
+                        return false;
+                    });
+                    if (item) break;
+                }
+            }
+        }
+
+        // 4. Si el elemento no existe en memoria (caso del consultor que reabre el catálogo vacío),
+        //    intentamos cargar el archivo directamente desde el sistema de archivos local utilizando rutas relativas.
+        if (!item) {
+            console.log(`[_loadSearchImage] Imagen no encontrada en memoria. Probando fallback de rutas relativas locales para: ${pathKey}`);
+            
+            const fallbacks = [
+                pathKey,
+                '../' + pathKey,
+                './' + pathKey
+            ];
+
+            let attemptIndex = 0;
+            const tryNextFallback = () => {
+                if (attemptIndex < fallbacks.length) {
+                    const src = fallbacks[attemptIndex++];
+                    imgEl.onload = () => {
+                        console.log(`[_loadSearchImage] Fallback exitoso cargado desde: ${src}`);
+                        state._searchDetailObjectUrl = src;
+                        imgEl.style.display = 'block';
+                        noImg.style.display = 'none';
+                    };
+                    imgEl.onerror = () => {
+                        console.warn(`[_loadSearchImage] Fallback fallido para: ${src}`);
+                        tryNextFallback();
+                    };
+                    imgEl.src = src;
+                } else {
+                    console.error(`[_loadSearchImage] Todos los fallbacks locales han fallado para: ${pathKey}`);
+                    imgEl.style.display = 'none';
+                    noImg.style.display = 'block';
+                }
+            };
+
+            tryNextFallback();
+            return;
+        }
+
+        // Cargar imagen encontrada desde memoria (Blob o File System Handle de la sesión)
         try {
             let src;
             if (item.blob) {
@@ -640,15 +746,29 @@ Object.assign(window.app, {
                 const file = await item.handle.getFile();
                 const blob = new Blob([await file.arrayBuffer()], { type: 'image/jpeg' });
                 src = URL.createObjectURL(blob);
+            } else if (item.zipRef && item.internalPath) {
+                // Si la imagen está en un paquete, extraer y desofuscar de ser necesario
+                let zipBlob = await item.zipRef.file(item.internalPath).async("blob");
+                zipBlob = new Blob([zipBlob], { type: 'image/jpeg' });
+                src = URL.createObjectURL(zipBlob);
             }
+
             if (src) {
                 state._searchDetailObjectUrl = src;
+                imgEl.onload = () => {
+                    imgEl.style.display = 'block';
+                    noImg.style.display = 'none';
+                };
+                imgEl.onerror = () => {
+                    imgEl.style.display = 'none';
+                    noImg.style.display = 'block';
+                };
                 imgEl.src = src;
-                imgEl.style.display = 'block';
-                noImg.style.display = 'none';
             }
         } catch(e) {
-            console.error('Error cargando imagen en detalle:', e);
+            console.error('Error cargando imagen de memoria en detalle:', e);
+            imgEl.style.display = 'none';
+            noImg.style.display = 'block';
         }
     },
 
